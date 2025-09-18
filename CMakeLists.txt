@@ -13,6 +13,8 @@ add_subdirectory(external/spdlog)
 
 set(PIANO_RECORDER_COMMON_SOURCE
     src/device-utils.cpp
+    src/audio-recorder.cpp
+    src/midi-recorder.cpp
 )
 
 set(PIANO_RECORDER_EXTERNAL_LIBRARIES
@@ -32,8 +34,6 @@ set(PIANO_RECORDER_INCLUDES
 
 
 # Main executable
-# add_executable(piano-recorder src/main.cpp)
-
 add_library(piano-recorder-common ${PIANO_RECORDER_COMMON_SOURCE})
 add_executable(piano-file-recorder app/piano-file-recorder.cpp)
 

@@ -23,15 +23,6 @@ int main(int argc, char **argv)
     if (list_devices) {
         // List audio inputs
         std::cout << "Audio inputs:\n";
-        juce::OwnedArray<juce::AudioIODeviceType> types;
-        audio_device_manager.createAudioDeviceTypes(types);
-        for (auto *type : types) {
-            type->scanForDevices();
-            auto devices = type->getDeviceNames(true);
-            for (auto &dev : devices) {
-                std::cout << " - " << dev << std::endl;
-            }
-        }
 
         // List MIDI devices
         std::cout << "MIDI inputs:\n";
