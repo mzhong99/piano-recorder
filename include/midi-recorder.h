@@ -8,25 +8,20 @@ namespace piano_recorder {
 class MidiRecorder : public SimpleRecorder, public juce::MidiInputCallback
 {
 public:
-    MidiRecorder();
-    ~MidiRecorder() override;
+    MidiRecorder() = default;
+    virtual ~MidiRecorder() = default;
 
-    bool start_recording(const std::filesystem::path& file_path) override;
+    bool start_recording(const std::filesystem::path &base_path) override;
     void stop_recording() override;
-    bool is_recording() const override;
-    std::filesystem::path get_output_file() const override;
 
-    void handleIncomingMidiMessage(juce::MidiInput* source,
-                                   const juce::MidiMessage& message) override;
+    void handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message) override;
 
 private:
-    std::filesystem::path output_path;
-    std::unique_ptr<juce::FileOutputStream> output_stream;
-    juce::MidiFile midi_file;
-    juce::MidiMessageSequence midi_sequence;
+    std::unique_ptr<juce::FileOutputStream> _output_stream;
+    juce::MidiFile _midi_file;
+    juce::MidiMessageSequence _midi_sequence;
 
-    bool recording_in_progress{false};
-    double start_time{0.0};
+    double _start_time{0.0};
 };
 
 } // namespace piano_recorder

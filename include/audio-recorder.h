@@ -7,15 +7,12 @@
 
 namespace piano_recorder {
 
-class AudioRecorder : public SimpleRecorder, private juce::AudioIODeviceCallback
+class AudioRecorder : public SimpleRecorder, public juce::AudioIODeviceCallback
 {
 public:
     AudioRecorder();
-
-    bool start_recording(const std::filesystem::path& file) override;
-    void stop_recording() override;
-    bool is_recording() const override;
-    std::filesystem::path get_output_file() const override;
+    bool start_recording(const std::filesystem::path &base_path) override;
+    void stop_recording(void) override;
 
     // JUCE callbacks
     void audioDeviceIOCallbackWithContext(
@@ -23,19 +20,18 @@ public:
         float* const* output_channel_data, int num_output_channels,
         int num_samples, const juce::AudioIODeviceCallbackContext& context) override;
 
-    void audioDeviceAboutToStart(juce::AudioIODevice* device) override;
-    void audioDeviceStopped() override;
+    void audioDeviceAboutToStart(juce::AudioIODevice *device) override;
+    void audioDeviceStopped(void) override {};
 
 private:
-    juce::File output_file;
-    juce::AudioBuffer<float> audio_buffer;
-    double sample_rate;
+    juce::File _output_file;
+    double _sample_rate;
 
-    std::unique_ptr<juce::AudioFormatWriter> writer;
-    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> threaded_writer;
+    std::unique_ptr<juce::AudioFormatWriter> _writer;
+    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> _threaded_writer;
 
-    juce::TimeSliceThread background_thread;
-    std::atomic<juce::AudioFormatWriter::ThreadedWriter*> active_writer;
+    juce::TimeSliceThread _background_thread;
+    std::atomic<juce::AudioFormatWriter::ThreadedWriter*> _active_writer;
 };
 
 } // namespace piano_recorder

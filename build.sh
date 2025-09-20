@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
+cmake -DCMAKE_BUILD_TYPE=Debug -S . -B build/
 
-cmake -S . -B build/
-cmake --build build/ -j$(nproc)
+pushd build
+cmake --build . -j$(nproc)
+# cpack -G DEB
+cpack -G RPM
+popd
 

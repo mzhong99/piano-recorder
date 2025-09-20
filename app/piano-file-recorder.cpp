@@ -1,38 +1,48 @@
 #include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
 #include <CLI/CLI.hpp>
 
-#include "device-utils.h"
+#include "instrument-recorder.h"
 
 #include <iostream>
+#include <vector>
 #include <string>
+#include <memory>
 
 #include <spdlog/spdlog.h>
 
-void print_devices(void)
+using namespace piano_recorder;
+
+void print_devices(InstrumentRecorder &recorder)
 {
     std::cout << "Audio Input Devices:" << std::endl;
-    std::vector<std::string> audio_names = piano_recorder::get_audio_device_names();
+    std::vector<std::string> audio_names = recorder.get_audio_device_names();
     for (const std::string &name : audio_names) {
         std::cout << " - " << name << std::endl;
     }
 
     std::cout << "MIDI Input Devices:" << std::endl;
-    std::vector<std::string> midi_names = piano_recorder::get_midi_device_names();
+    std::vector<std::string> midi_names = recorder.get_midi_device_names();
     for (const std::string &name : midi_names) {
         std::cout << " - " << name << std::endl;
     }
 }
 
-int record_audio(const std::string &audio_device, const std::string &midi_device, const std::string &output_base)
+int record_audio(InstrumentRecorder &recorder)
 {
-    spdlog::info("Start recording: audio='{}', midi='{}', output_base='{}'", audio_device, midi_device, output_base);
+    recorder.start_recording();
 
+    std::cout << "Press ENTER to stop recording..." << std::endl;
+    std::cin.get();
+
+    recorder.stop_recording();
     return EXIT_SUCCESS;
 }
 
 int main(int argc, char **argv)
 {
     CLI::App app{fmt::format("{} - record audio and/or MIDI", argv[0])};
+    spdlog::set_pattern("[%H:%M:%S.%e] [%t] %s:%# %! %v");
 
     std::string output_base;
     std::string audio_device;
@@ -52,8 +62,9 @@ int main(int argc, char **argv)
         return app.exit(e);
     }
 
+    piano_recorder::InstrumentRecorder recorder;
     if (list_devices) {
-        print_devices();
+        print_devices(recorder);
         return EXIT_SUCCESS;
     }
 
@@ -67,6 +78,10 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    return record_audio(audio_device, midi_device, output_base);
+    recorder.set_audio_source(audio_device);
+    recorder.set_midi_source(midi_device);
+    recorder.set_output_path(output_base);
+
+    return record_audio(recorder);
 }
 

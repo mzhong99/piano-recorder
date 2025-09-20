@@ -1,74 +1,65 @@
 #include "midi-recorder.h"
 #include "device-utils.h"
+#include <spdlog/spdlog.h>
 
 namespace piano_recorder {
 
-MidiRecorder::MidiRecorder()
-    : start_time(0.0)
+bool MidiRecorder::start_recording(const std::filesystem::path &file_path)
 {
-}
+    _output_path = file_path;
+    _output_path.replace_extension(".mid");
 
-bool MidiRecorder::start_recording(const std::filesystem::path& file_path)
-{
-    stop_recording();
-
-    output_path = file_path;
-    juce::File file(file_path.string());
+    juce::File file(_output_path.string());
     file.deleteFile();
 
-    output_stream = std::make_unique<juce::FileOutputStream>(file);
-    if (!output_stream->openedOk()) {
+    _output_stream = std::make_unique<juce::FileOutputStream>(file);
+    if (!_output_stream->openedOk()) {
+        spdlog::error("Could not create output stream");
         return false;
     }
 
-    midi_file = juce::MidiFile();
-    midi_file.setTicksPerQuarterNote(960); // standard PPQ
-    midi_sequence = juce::MidiMessageSequence();
+    _midi_file = juce::MidiFile();
+    _midi_file.setTicksPerQuarterNote(960); // standard PPQ
+    _midi_sequence = juce::MidiMessageSequence();
 
-    start_time = juce::Time::getMillisecondCounterHiRes() * 0.001;
-    recording_in_progress = true;
+    _start_time = juce::Time::getMillisecondCounterHiRes() * 0.001;
 
+    _running = true;
     return true;
 }
 
 void MidiRecorder::stop_recording()
 {
-    if (!recording_in_progress) {
+    if (!_running) {
         return;
     }
 
     // add the sequence to the MidiFile
-    midi_file.addTrack(midi_sequence);
+    _midi_file.addTrack(_midi_sequence);
 
-    if (output_stream) {
-        midi_file.writeTo(*output_stream);
-        output_stream->flush();
-        output_stream.reset();
+    if (_output_stream) {
+        _midi_file.writeTo(*_output_stream);
+        _output_stream->flush();
+        _output_stream.reset();
     }
 
-    recording_in_progress = false;
+    _running = false;
 }
 
-void MidiRecorder::handleIncomingMidiMessage(juce::MidiInput* /*source*/,
-                                             const juce::MidiMessage& message)
+void MidiRecorder::handleIncomingMidiMessage(juce::MidiInput *source, const juce::MidiMessage &message)
 {
-    if (!recording_in_progress) {
+    if (!_running) {
         return;
     }
 
     // timestamp relative to recording start
     double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
-    double time_seconds = now - start_time;
+    double time_seconds = now - _start_time;
 
     juce::MidiMessage msg_copy = message;
     msg_copy.setTimeStamp(time_seconds);
 
-    midi_sequence.addEvent(msg_copy);
-}
-
-std::filesystem::path MidiRecorder::get_output_file() const
-{
-    return output_path;
+    _midi_sequence.addEvent(msg_copy);
 }
 
 } // namespace piano_recorder

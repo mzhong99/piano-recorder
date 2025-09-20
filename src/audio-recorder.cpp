@@ -1,14 +1,13 @@
 #include "audio-recorder.h"
 #include "device-utils.h"
+#include <spdlog/spdlog.h>
 
 namespace piano_recorder {
 
 AudioRecorder::AudioRecorder() :
-    sample_rate(0.0),
-    background_thread("Audio Recorder Thread"),
-    active_writer(nullptr)
+    _sample_rate(0.0), _background_thread("Audio Recorder Thread"), _active_writer(nullptr)
 {
-    background_thread.startThread();
+    _background_thread.startThread();
 }
 
 void AudioRecorder::audioDeviceIOCallbackWithContext(
@@ -16,44 +15,60 @@ void AudioRecorder::audioDeviceIOCallbackWithContext(
     float* const* output_channel_data, int num_output_channels,
     int num_samples, const juce::AudioIODeviceCallbackContext& context)
 {
-    juce::ignoreUnused(output_channel_data, num_output_channels, num_input_channels);
+    if (!_running) {
+        return;
+    }
 
-    if (auto* writer_ptr = active_writer.load())
+    juce::AudioFormatWriter::ThreadedWriter *writer_ptr = _active_writer.load();
+    if (writer_ptr != nullptr) {
         writer_ptr->write(input_channel_data, num_samples);
+    }
 }
 
-bool AudioRecorder::start_recording(const std::filesystem::path& file_path)
+void AudioRecorder::audioDeviceAboutToStart(juce::AudioIODevice* device)
 {
-    stop_recording();
+    _sample_rate = device->getCurrentSampleRate();
+}
 
-    juce::File file(file_path.string());
-    file.deleteFile();
+bool AudioRecorder::start_recording(const std::filesystem::path& base_path)
+{
+    _output_path = base_path;
+    _output_path.replace_extension(".wav");
 
-    std::unique_ptr<juce::OutputStream> output_stream = std::make_unique<juce::FileOutputStream>(file);
+    _output_file = juce::File(_output_path.string());
+    _output_file.deleteFile();
+
+    std::unique_ptr<juce::OutputStream> output_stream = std::make_unique<juce::FileOutputStream>(_output_file);
     if (!dynamic_cast<juce::FileOutputStream *>(output_stream.get())->openedOk()) {
+        spdlog::error("OutputStream::openedOk() returned false");
         return false;
     }
 
     juce::WavAudioFormat wav_format;
     juce::AudioFormatWriterOptions options = juce::AudioFormatWriterOptions()
-            .withSampleRate(sample_rate > 0 ? sample_rate : 44100.0)
+            .withSampleRate(_sample_rate > 0 ? _sample_rate : 44100.0)
             .withNumChannels(2)
             .withBitsPerSample(16);
     auto writer = wav_format.createWriterFor(output_stream, options);
     if (writer == nullptr) {
+        spdlog::error("Could not create writer");
         return false;
     }
 
-    threaded_writer = std::make_unique<juce::AudioFormatWriter::ThreadedWriter>(
-        writer.release(), background_thread, 32768);
+    _threaded_writer =
+        std::make_unique<juce::AudioFormatWriter::ThreadedWriter>(_writer.release(), _background_thread, 32768);
+    _active_writer.store(_threaded_writer.get());
+    _running = true;
 
-    active_writer.store(threaded_writer.get());
     return true;
 }
 
-std::filesystem::path AudioRecorder::get_output_file() const
+void AudioRecorder::stop_recording(void)
 {
-    return to_std_path(output_file);
+    _writer.reset();
+    _threaded_writer.reset();
+
+    _running = false;
 }
 
 } // namespace piano_recorder
