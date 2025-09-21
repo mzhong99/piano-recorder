@@ -5,6 +5,6 @@ cmake -DCMAKE_BUILD_TYPE=Debug -S . -B build/
 pushd build
 cmake --build . -j$(nproc)
 # cpack -G DEB
-cpack -G RPM
+# cpack -G RPM
 popd
 

@@ -14,7 +14,7 @@ namespace piano_recorder {
 class InstrumentRecorder
 {
 public:
-    InstrumentRecorder(const std::filesystem::path &path = "");
+    InstrumentRecorder(std::weak_ptr<juce::AudioDeviceManager> device_manager, const std::filesystem::path &path = "");
     bool set_audio_source(const std::string &name);
     bool set_midi_source(const std::string &name);
     bool set_output_path(const std::filesystem::path &path);
@@ -22,12 +22,8 @@ public:
     bool start_recording(void);
     void stop_recording(void);
 
-    std::vector<std::string> get_audio_device_names(void);
-    std::string get_default_audio_device_name(void) const;
-    std::vector<std::string> get_midi_device_names(void) const;
-
 private:
-    juce::AudioDeviceManager _device_manager;
+    std::weak_ptr<juce::AudioDeviceManager> _device_manager;
     AudioRecorder _audio_recorder;
     MidiRecorder _midi_recorder;
 

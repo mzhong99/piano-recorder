@@ -3,16 +3,19 @@ project(PianoRecorder VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 set(SPDLOG_HEADER_ONLY ON CACHE BOOL "" FORCE)
 
 find_package(CURL REQUIRED)
+find_package(Threads REQUIRED)
+
+add_compile_definitions(JUCE_MODAL_LOOPS_PERMITTED=1)
 
 add_subdirectory(external/JUCE)
 add_subdirectory(external/CLI11)
 add_subdirectory(external/spdlog)
 
 set(PIANO_RECORDER_COMMON_SOURCE
+    src/juce-audio-context.cpp
     src/audio-recorder.cpp
     src/midi-recorder.cpp
     src/instrument-recorder.cpp
@@ -24,6 +27,7 @@ set(PIANO_RECORDER_EXTERNAL_LIBRARIES
     juce::juce_audio_formats
     juce::juce_core
     juce::juce_graphics
+    Threads::Threads
     CLI11::CLI11
     CURL::libcurl
     spdlog::spdlog_header_only

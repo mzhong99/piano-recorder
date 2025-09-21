@@ -2,6 +2,7 @@
 #include <spdlog/spdlog.h>
 #include <CLI/CLI.hpp>
 
+#include "juce-audio-context.h"
 #include "instrument-recorder.h"
 
 #include <iostream>
@@ -13,16 +14,16 @@
 
 using namespace piano_recorder;
 
-void print_devices(InstrumentRecorder &recorder)
+void print_devices(JuceAudioContext &context)
 {
     std::cout << "Audio Input Devices:" << std::endl;
-    std::vector<std::string> audio_names = recorder.get_audio_device_names();
+    std::vector<std::string> audio_names = context.get_audio_device_names();
     for (const std::string &name : audio_names) {
         std::cout << " - " << name << std::endl;
     }
 
     std::cout << "MIDI Input Devices:" << std::endl;
-    std::vector<std::string> midi_names = recorder.get_midi_device_names();
+    std::vector<std::string> midi_names = context.get_midi_device_names();
     for (const std::string &name : midi_names) {
         std::cout << " - " << name << std::endl;
     }
@@ -62,9 +63,11 @@ int main(int argc, char **argv)
         return app.exit(e);
     }
 
-    piano_recorder::InstrumentRecorder recorder;
+    piano_recorder::JuceAudioContext juce_context{2, 0};
+    // piano_recorder::InstrumentRecorder recorder(juce_context.get_device_manager());
+
     if (list_devices) {
-        print_devices(recorder);
+        print_devices(juce_context);
         return EXIT_SUCCESS;
     }
 
@@ -78,10 +81,11 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    recorder.set_audio_source(audio_device);
-    recorder.set_midi_source(midi_device);
-    recorder.set_output_path(output_base);
+    // recorder.set_audio_source(audio_device);
+    // recorder.set_midi_source(midi_device);
+    // recorder.set_output_path(output_base);
 
-    return record_audio(recorder);
+    // return record_audio(recorder);
+    return 0;
 }
 
