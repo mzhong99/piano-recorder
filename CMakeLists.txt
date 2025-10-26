@@ -11,7 +11,7 @@ find_package(Threads REQUIRED)
 add_compile_definitions(JUCE_MODAL_LOOPS_PERMITTED=1)
 
 add_subdirectory(external/JUCE)
-add_subdirectory(external/CLI11)
+add_subdirectory(external/cxxopts)
 add_subdirectory(external/spdlog)
 
 set(PIANO_RECORDER_COMMON_SOURCE
@@ -28,14 +28,14 @@ set(PIANO_RECORDER_EXTERNAL_LIBRARIES
     juce::juce_core
     juce::juce_graphics
     Threads::Threads
-    CLI11::CLI11
+    cxxopts::cxxopts
     CURL::libcurl
     spdlog::spdlog_header_only
 )
 
 set(PIANO_RECORDER_INCLUDES
     include
-    external/CLI11/include
+    external/cxxopts/include
     external/spdlog/include
 )
 

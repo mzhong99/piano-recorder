@@ -62,6 +62,7 @@ public:
 private:
     void thread_func(void);
     void refresh_device_names_internal(void);
+
     const int _num_inputs;
     const int _num_outputs;
 
