@@ -1,9 +1,18 @@
-[submodule "external/JUCE"]
-	path = external/JUCE
-	url = https://github.com/juce-framework/JUCE.git
 [submodule "external/spdlog"]
 	path = external/spdlog
 	url = https://github.com/gabime/spdlog.git
 [submodule "external/cxxopts"]
 	path = external/cxxopts
 	url = https://github.com/jarro2783/cxxopts.git
+[submodule "external/rtaudio"]
+	path = external/rtaudio
+	url = https://github.com/thestk/rtaudio
+[submodule "external/rtmidi"]
+	path = external/rtmidi
+	url = https://github.com/thestk/rtmidi
+[submodule "external/doctest"]
+	path = external/doctest
+	url = https://github.com/doctest/doctest.git
+[submodule "external/MPMCQueue"]
+	path = external/MPMCQueue
+	url = https://github.com/rigtorp/MPMCQueue.git

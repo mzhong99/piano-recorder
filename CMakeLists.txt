@@ -5,28 +5,32 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(SPDLOG_HEADER_ONLY ON CACHE BOOL "" FORCE)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-interference-size")
+
 find_package(CURL REQUIRED)
 find_package(Threads REQUIRED)
 
-add_compile_definitions(JUCE_MODAL_LOOPS_PERMITTED=1)
+set(RTMIDI_BUILD_TESTING OFF)
+set(RTAUDIO_BUILD_TESTING OFF)
 
-add_subdirectory(external/JUCE)
+add_subdirectory(external/rtaudio)
+add_subdirectory(external/rtmidi)
 add_subdirectory(external/cxxopts)
 add_subdirectory(external/spdlog)
 
 set(PIANO_RECORDER_COMMON_SOURCE
-    src/juce-audio-context.cpp
-    src/audio-recorder.cpp
-    src/midi-recorder.cpp
-    src/instrument-recorder.cpp
+    src/audio_recorder.cpp
+    src/midi_recorder.cpp
+    src/instrument_recorder.cpp
+)
+
+set(PIANO_RECORDER_TEST_SRC
+    tests/doctest_main.cpp
 )
 
 set(PIANO_RECORDER_EXTERNAL_LIBRARIES
-    juce::juce_audio_basics
-    juce::juce_audio_devices
-    juce::juce_audio_formats
-    juce::juce_core
-    juce::juce_graphics
+    rtaudio
+    rtmidi
     Threads::Threads
     cxxopts::cxxopts
     CURL::libcurl
@@ -35,6 +39,9 @@ set(PIANO_RECORDER_EXTERNAL_LIBRARIES
 
 set(PIANO_RECORDER_INCLUDES
     include
+    external/rtaudio
+    external/rtmidi
+    external/MPMCQueue/include
     external/cxxopts/include
     external/spdlog/include
 )
@@ -47,6 +54,10 @@ target_link_libraries(piano-recorder-common PUBLIC ${PIANO_RECORDER_EXTERNAL_LIB
 add_executable(piano-file-recorder app/piano-file-recorder.cpp)
 target_include_directories(piano-file-recorder PRIVATE ${PIANO_RECORDER_INCLUDES})
 target_link_libraries(piano-file-recorder PUBLIC piano-recorder-common)
+
+add_executable(unittests ${PIANO_RECORDER_TEST_SRC})
+target_link_libraries(unittests PUBLIC ${PIANO_RECORDER_EXTERNAL_LIBRARIES})
+target_include_directories(unittests PRIVATE external/doctest/doctest ${PIANO_RECORDER_INCLUDES})
 
 # Install rules
 install(TARGETS
