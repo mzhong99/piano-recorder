@@ -1,5 +1,6 @@
 #include "midi_device.hpp"
 #include <cxxopts.hpp>
+#include <string>
 #include <httplib.h>
 #include <iostream>
 #include <spdlog/fmt/ostr.h>
@@ -14,6 +15,7 @@ int main(int argc, char **argv) {
     options.add_options()
         ("l,list", "List ALSA sequencer clients/ports (placeholder)")
         ("V,version", "Print library versions")
+        ("p,port", "Select source port as client:port (e.g., 24:0)", cxxopts::value<std::string>())
         ("h,help", "Print help");
     // clang-format on
 
@@ -37,9 +39,16 @@ int main(int argc, char **argv) {
         spdlog::info("    alsa: {}", SND_LIB_VERSION_STR);
     }
 
-    // Prove httplib compiles: create a server object (not started)
-    httplib::Server server;
-    (void)server;
+    if (result.count("port")) {
+        std::string chosen_port = result["port"].as<std::string>();
+        auto devices = pr::midi::enumerate_midi_sources();
+        for (const auto &device : devices) {
+            std::string possible_port = fmt::format("{}:{}", device.client_id, device.port_id);
+            if (chosen_port == possible_port) {
+                spdlog::info("Selected: {}", fmt::streamed(device));
+            }
+        }
+    }
 
     return 0;
 }

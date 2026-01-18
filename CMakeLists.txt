@@ -14,9 +14,9 @@ add_subdirectory(third_party/spdlog EXCLUDE_FROM_ALL)
 
 # midifile tells you to copy and paste + statically compile stuff yourself so that's what we do
 add_library(midifile STATIC
-  third_party/midifile/src/MidiFile.cpp
-  third_party/midifile/src/MidiEvent.cpp
-  third_party/midifile/src/MidiMessage.cpp
+    third_party/midifile/src/MidiFile.cpp
+    third_party/midifile/src/MidiEvent.cpp
+    third_party/midifile/src/MidiMessage.cpp
 )
 
 target_include_directories(midifile PUBLIC
@@ -31,6 +31,7 @@ pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
 
 add_executable(piano-recorder
     src/main.cpp
+    src/midi_recorder.cpp
     src/midi_device.cpp
     src/alsa_midi_in.cpp
 )
