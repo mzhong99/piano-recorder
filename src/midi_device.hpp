@@ -1,10 +1,10 @@
 #pragma once
 
-#include <vector>
-#include <string>
 #include <cstdint>
 #include <iosfwd>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace pr::midi {
 
@@ -22,7 +22,6 @@ struct MidiPortHandle {
 };
 
 std::vector<MidiPortHandle> enumerate_midi_sources(void);
-std::ostream& operator<<(std::ostream& os, const MidiPortHandle& h);
+std::ostream &operator<<(std::ostream &os, const MidiPortHandle &h);
 
 } // namespace pr::midi
-

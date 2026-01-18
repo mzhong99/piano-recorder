@@ -1,23 +1,23 @@
 #include "midi_device.hpp"
 #include <alsa/asoundlib.h>
-#include <vector>
-#include <string>
 #include <map>
-#include <sstream>
 #include <spdlog/spdlog.h>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace pr::midi {
 
 std::vector<MidiPortHandle> enumerate_midi_sources(void) {
     std::vector<MidiPortHandle> out;
 
-    snd_seq_t* seq = nullptr;
+    snd_seq_t *seq = nullptr;
     if (snd_seq_open(&seq, "default", SND_SEQ_OPEN_DUPLEX, 0) < 0) {
         return out;
     }
 
-    snd_seq_client_info_t* cinfo;
-    snd_seq_port_info_t* pinfo;
+    snd_seq_client_info_t *cinfo;
+    snd_seq_port_info_t *pinfo;
     snd_seq_client_info_alloca(&cinfo);
     snd_seq_port_info_alloca(&pinfo);
 
@@ -25,7 +25,7 @@ std::vector<MidiPortHandle> enumerate_midi_sources(void) {
 
     while (snd_seq_query_next_client(seq, cinfo) >= 0) {
         const int client = snd_seq_client_info_get_client(cinfo);
-        const char* cname = snd_seq_client_info_get_name(cinfo);
+        const char *cname = snd_seq_client_info_get_name(cinfo);
         const bool is_kernel = snd_seq_client_info_get_type(cinfo) == SND_SEQ_CLIENT_SYSTEM;
 
         snd_seq_port_info_set_client(pinfo, client);
@@ -57,7 +57,8 @@ std::vector<MidiPortHandle> enumerate_midi_sources(void) {
     return out;
 }
 
-static std::string to_string_mapping(uint32_t bitfield, const std::map<uint32_t, std::string> &stringify) {
+static std::string to_string_mapping(
+    uint32_t bitfield, const std::map<uint32_t, std::string> &stringify) {
     std::string sep = "";
     std::stringstream ss;
     for (auto &[key, val] : stringify) {
@@ -92,12 +93,11 @@ static std::string to_string_type(uint32_t type) {
     return to_string_mapping(type, STRINGIFY);
 }
 
-std::ostream& operator<<(std::ostream& os, const MidiPortHandle& h) {
-    os << fmt::format("{}:{} [{}] / [{}] kernel={} capabilities={} type={}",
-            h.client_id, h.port_id, h.client_name, h.port_name, h.is_kernel ? "yes" : "no",
-            to_string_capabilities(h.capabilities), to_string_type(h.type));
+std::ostream &operator<<(std::ostream &os, const MidiPortHandle &h) {
+    os << fmt::format("{}:{} [{}] / [{}] kernel={} capabilities={} type={}", h.client_id, h.port_id,
+        h.client_name, h.port_name, h.is_kernel ? "yes" : "no",
+        to_string_capabilities(h.capabilities), to_string_type(h.type));
     return os;
 }
 
 } // namespace pr::midi
-

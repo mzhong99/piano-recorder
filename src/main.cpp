@@ -1,18 +1,17 @@
-#include <iostream>
+#include "midi_device.hpp"
 #include <cxxopts.hpp>
 #include <httplib.h>
-#include <spdlog/spdlog.h>
+#include <iostream>
 #include <spdlog/fmt/ostr.h>
+#include <spdlog/spdlog.h>
 #include <spdlog/version.h>
-#include "midi_device.hpp"
 
 #include <alsa/asoundlib.h>
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     cxxopts::Options options("piano-recorder", "MIDI recorder prototype");
-    options.add_options()
-        ("l,list", "List ALSA sequencer clients/ports (placeholder)")
-        ("h,help", "Print help");
+    options.add_options()("l,list", "List ALSA sequencer clients/ports (placeholder)")(
+        "h,help", "Print help");
 
     auto result = options.parse(argc, argv);
     if (result["help"].as<bool>()) {
@@ -38,4 +37,3 @@ int main(int argc, char** argv) {
 
     return 0;
 }
-
