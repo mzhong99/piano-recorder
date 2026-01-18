@@ -4,15 +4,15 @@
 
 #include <atomic>
 #include <chrono>
-#include <thread>
-#include <string>
-#include <vector>
 #include <iosfwd>
+#include <string>
+#include <thread>
+#include <vector>
 
 #include "midi_device.hpp"
 
 // has to be in global namespace or else fmt::streamed() can't see it
-std::ostream& operator<<(std::ostream& os, const snd_seq_event_t& ev);
+std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev);
 
 namespace pr::midi {
 
@@ -21,12 +21,14 @@ public:
     explicit MidiRecorder(MidiPortHandle src);
     ~MidiRecorder();
 
-    MidiRecorder(const MidiRecorder&) = delete;
-    MidiRecorder& operator=(const MidiRecorder&) = delete;
+    MidiRecorder(const MidiRecorder &) = delete;
+    MidiRecorder &operator=(const MidiRecorder &) = delete;
 
     void start();
     void stop();
-    bool running() const noexcept { return running_.load(); }
+    bool running() const noexcept {
+        return running_.load();
+    }
 
 private:
     void alsa_open_();
@@ -37,9 +39,9 @@ private:
 
     void record_loop_(void);
 
-    static void print_hex_(const unsigned char* p, size_t n) noexcept;
+    static void print_hex_(const unsigned char *p, size_t n) noexcept;
 
-    static bool alsa_to_midi_bytes_(const snd_seq_event_t& ev, std::vector<unsigned char>& out);
+    static bool alsa_to_midi_bytes_(const snd_seq_event_t &ev, std::vector<unsigned char> &out);
 
 private:
     MidiPortHandle src_;
@@ -48,7 +50,7 @@ private:
     std::thread thread_{};
 
     // ALSA sequencer
-    snd_seq_t* seq_{nullptr};
+    snd_seq_t *seq_{nullptr};
     int self_client_{-1};
     int in_port_{-1};
 
@@ -57,4 +59,3 @@ private:
 };
 
 } // namespace pr::midi
-

@@ -1,15 +1,15 @@
 #include "midi_device.hpp"
 #include "midi_recorder.hpp"
 
-#include <cxxopts.hpp>
-#include <string>
-#include <thread>
 #include <chrono>
+#include <cxxopts.hpp>
 #include <httplib.h>
 #include <iostream>
 #include <spdlog/fmt/ostr.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/version.h>
+#include <string>
+#include <thread>
 
 #include <alsa/asoundlib.h>
 

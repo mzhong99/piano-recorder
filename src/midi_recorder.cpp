@@ -1,29 +1,30 @@
 // midi_recorder_print.cpp
 #include "midi_recorder.hpp"
 
-#include <spdlog/spdlog.h>
 #include <spdlog/fmt/ostr.h>
+#include <spdlog/spdlog.h>
 
-#include <iostream>
 #include <errno.h>
+#include <iostream>
+#include <map>
 #include <poll.h>
+#include <stdexcept>
 #include <stdio.h>
 #include <string.h>
 #include <string>
-#include <stdexcept>
-#include <map>
 
-static std::string midi_bytes_hex(const std::vector<unsigned char>& bytes) {
+static std::string midi_bytes_hex(const std::vector<unsigned char> &bytes) {
     std::string out;
     out.reserve(bytes.size() * 3);
     for (size_t i = 0; i < bytes.size(); ++i) {
-        if (i) out.push_back(' ');
+        if (i)
+            out.push_back(' ');
         out += fmt::format("{:02X}", bytes[i]);
     }
     return out;
 }
 
-std::ostream& operator<<(std::ostream& os, const snd_seq_event_t& ev) {
+std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev) {
     std::map<int, std::string> EVENT_TYPE_NAME = {
         {SND_SEQ_EVENT_NOTEON, "NOTEON"},
         {SND_SEQ_EVENT_NOTEOFF, "NOTEOFF"},
@@ -76,23 +77,23 @@ std::ostream& operator<<(std::ostream& os, const snd_seq_event_t& ev) {
 
 namespace pr::midi {
 
-
-
-static void throw_alsa(const char* what, int rc) {
+static void throw_alsa(const char *what, int rc) {
     throw std::runtime_error(std::string(what) + ": " + snd_strerror(rc));
 }
 
-static void throw_sys(const char* what) {
+static void throw_sys(const char *what) {
     int e = errno;
     throw std::runtime_error(std::string(what) + ": " + std::strerror(e));
 }
 
 MidiRecorder::MidiRecorder(MidiPortHandle src) : src_(src) {}
-MidiRecorder::~MidiRecorder() { stop(); }
-;
+MidiRecorder::~MidiRecorder() {
+    stop();
+};
 void MidiRecorder::start() {
     bool expected = false;
-    if (!running_.compare_exchange_strong(expected, true)) return;
+    if (!running_.compare_exchange_strong(expected, true))
+        return;
 
     alsa_open_();
     alsa_create_input_port_();
@@ -104,7 +105,8 @@ void MidiRecorder::start() {
 }
 
 void MidiRecorder::stop() {
-    if (!running_.load()) return;
+    if (!running_.load())
+        return;
 
     if (thread_.joinable()) {
         thread_.join();
@@ -117,11 +119,13 @@ void MidiRecorder::stop() {
 
 void MidiRecorder::alsa_open_() {
     int rc = snd_seq_open(&seq_, "default", SND_SEQ_OPEN_INPUT, 0);
-    if (rc < 0) throw_alsa("snd_seq_open", rc);
+    if (rc < 0)
+        throw_alsa("snd_seq_open", rc);
 
     snd_seq_set_client_name(seq_, "piano-recorder");
     self_client_ = snd_seq_client_id(seq_);
-    if (self_client_ < 0) throw std::runtime_error("snd_seq_client_id failed");
+    if (self_client_ < 0)
+        throw std::runtime_error("snd_seq_client_id failed");
 }
 
 void MidiRecorder::alsa_close_() noexcept {
@@ -134,11 +138,8 @@ void MidiRecorder::alsa_close_() noexcept {
 }
 
 void MidiRecorder::alsa_create_input_port_() {
-    in_port_ = snd_seq_create_simple_port(
-        seq_,
-        "Recorder In",
-        SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE,
-        SND_SEQ_PORT_TYPE_APPLICATION);
+    in_port_ = snd_seq_create_simple_port(seq_, "Recorder In",
+        SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE, SND_SEQ_PORT_TYPE_APPLICATION);
     snd_seq_nonblock(seq_, 1);
 
     if (in_port_ < 0) {
@@ -148,25 +149,27 @@ void MidiRecorder::alsa_create_input_port_() {
 }
 
 void MidiRecorder::alsa_subscribe_() {
-    snd_seq_addr_t src_addr{ .client = (uint8_t)src_.client_id, .port = (uint8_t)src_.port_id };
-    snd_seq_addr_t dst_addr{ .client = (uint8_t)self_client_, .port = (uint8_t)in_port_ };
+    snd_seq_addr_t src_addr{.client = (uint8_t)src_.client_id, .port = (uint8_t)src_.port_id};
+    snd_seq_addr_t dst_addr{.client = (uint8_t)self_client_, .port = (uint8_t)in_port_};
 
-    snd_seq_port_subscribe_t* sub = nullptr;
+    snd_seq_port_subscribe_t *sub = nullptr;
     snd_seq_port_subscribe_alloca(&sub);
     snd_seq_port_subscribe_set_sender(sub, &src_addr);
     snd_seq_port_subscribe_set_dest(sub, &dst_addr);
 
     int rc = snd_seq_subscribe_port(seq_, sub);
-    if (rc < 0) throw_alsa("snd_seq_subscribe_port", rc);
+    if (rc < 0)
+        throw_alsa("snd_seq_subscribe_port", rc);
 }
 
 void MidiRecorder::alsa_unsubscribe_best_effort_() noexcept {
-    if (!seq_ || in_port_ < 0 || self_client_ < 0) return;
+    if (!seq_ || in_port_ < 0 || self_client_ < 0)
+        return;
 
-    snd_seq_addr_t src_addr{ .client = (uint8_t)src_.client_id, .port = (uint8_t)src_.port_id };
-    snd_seq_addr_t dst_addr{ .client = (uint8_t)self_client_, .port = (uint8_t)in_port_ };
+    snd_seq_addr_t src_addr{.client = (uint8_t)src_.client_id, .port = (uint8_t)src_.port_id};
+    snd_seq_addr_t dst_addr{.client = (uint8_t)self_client_, .port = (uint8_t)in_port_};
 
-    snd_seq_port_subscribe_t* sub = nullptr;
+    snd_seq_port_subscribe_t *sub = nullptr;
     snd_seq_port_subscribe_alloca(&sub);
     snd_seq_port_subscribe_set_sender(sub, &src_addr);
     snd_seq_port_subscribe_set_dest(sub, &dst_addr);
@@ -174,52 +177,54 @@ void MidiRecorder::alsa_unsubscribe_best_effort_() noexcept {
     (void)snd_seq_unsubscribe_port(seq_, sub);
 }
 
-void MidiRecorder::print_hex_(const uint8_t* p, size_t n) noexcept {
+void MidiRecorder::print_hex_(const uint8_t *p, size_t n) noexcept {
     for (size_t i = 0; i < n; ++i) {
         std::printf("%02X%s", p[i], (i + 1 == n) ? "" : " ");
     }
 }
 
-bool MidiRecorder::alsa_to_midi_bytes_(const snd_seq_event_t& ev, std::vector<uint8_t>& out) {
+bool MidiRecorder::alsa_to_midi_bytes_(const snd_seq_event_t &ev, std::vector<uint8_t> &out) {
     out.clear();
     auto ch = [](int c) -> uint8_t { return static_cast<uint8_t>(c & 0x0F); };
 
     switch (ev.type) {
     case SND_SEQ_EVENT_NOTEON:
-        out = { static_cast<uint8_t>(0x90 | ch(ev.data.note.channel)),
-                static_cast<uint8_t>(ev.data.note.note & 0x7F),
-                static_cast<uint8_t>(ev.data.note.velocity & 0x7F) };
+        out = {static_cast<uint8_t>(0x90 | ch(ev.data.note.channel)),
+            static_cast<uint8_t>(ev.data.note.note & 0x7F),
+            static_cast<uint8_t>(ev.data.note.velocity & 0x7F)};
         return true;
     case SND_SEQ_EVENT_NOTEOFF:
-        out = { static_cast<uint8_t>(0x80 | ch(ev.data.note.channel)),
-                static_cast<uint8_t>(ev.data.note.note & 0x7F),
-                static_cast<uint8_t>(ev.data.note.velocity & 0x7F) };
+        out = {static_cast<uint8_t>(0x80 | ch(ev.data.note.channel)),
+            static_cast<uint8_t>(ev.data.note.note & 0x7F),
+            static_cast<uint8_t>(ev.data.note.velocity & 0x7F)};
         return true;
     case SND_SEQ_EVENT_CONTROLLER:
-        out = { static_cast<uint8_t>(0xB0 | ch(ev.data.control.channel)),
-                static_cast<uint8_t>(ev.data.control.param & 0x7F),
-                static_cast<uint8_t>(ev.data.control.value & 0x7F) };
+        out = {static_cast<uint8_t>(0xB0 | ch(ev.data.control.channel)),
+            static_cast<uint8_t>(ev.data.control.param & 0x7F),
+            static_cast<uint8_t>(ev.data.control.value & 0x7F)};
         return true;
     case SND_SEQ_EVENT_PGMCHANGE:
-        out = { static_cast<uint8_t>(0xC0 | ch(ev.data.control.channel)),
-                static_cast<uint8_t>(ev.data.control.value & 0x7F) };
+        out = {static_cast<uint8_t>(0xC0 | ch(ev.data.control.channel)),
+            static_cast<uint8_t>(ev.data.control.value & 0x7F)};
         return true;
     case SND_SEQ_EVENT_CHANPRESS:
-        out = { static_cast<uint8_t>(0xD0 | ch(ev.data.control.channel)),
-                static_cast<uint8_t>(ev.data.control.value & 0x7F) };
+        out = {static_cast<uint8_t>(0xD0 | ch(ev.data.control.channel)),
+            static_cast<uint8_t>(ev.data.control.value & 0x7F)};
         return true;
     case SND_SEQ_EVENT_PITCHBEND: {
         int v = ev.data.control.value;
-        if (v < -8192) v = -8192;
-        if (v >  8191) v =  8191;
+        if (v < -8192)
+            v = -8192;
+        if (v > 8191)
+            v = 8191;
         int pb = v + 8192; // 0..16383
-        out = { static_cast<uint8_t>(0xE0 | ch(ev.data.control.channel)),
-                static_cast<uint8_t>(pb & 0x7F),
-                static_cast<uint8_t>((pb >> 7) & 0x7F) };
+        out = {static_cast<uint8_t>(0xE0 | ch(ev.data.control.channel)),
+            static_cast<uint8_t>(pb & 0x7F), static_cast<uint8_t>((pb >> 7) & 0x7F)};
         return true;
     }
     case SND_SEQ_EVENT_SYSEX:
-        if (!ev.data.ext.ptr || ev.data.ext.len <= 0) return false;
+        if (!ev.data.ext.ptr || ev.data.ext.len <= 0)
+            return false;
         out.resize(static_cast<size_t>(ev.data.ext.len));
         std::memcpy(out.data(), ev.data.ext.ptr, out.size());
         return true;
@@ -230,13 +235,14 @@ bool MidiRecorder::alsa_to_midi_bytes_(const snd_seq_event_t& ev, std::vector<ui
 
 void MidiRecorder::record_loop_(void) {
     const unsigned int ndesc = (unsigned int)snd_seq_poll_descriptors_count(seq_, POLLIN);
-    if (ndesc <= 0) return;
+    if (ndesc <= 0)
+        return;
 
     std::vector<pollfd> fds(static_cast<size_t>(ndesc));
     snd_seq_poll_descriptors(seq_, fds.data(), ndesc, POLLIN);
 
-    spdlog::info("Subscribed {}:{} -> {}:{}. Printing events...",
-            src_.client_id, src_.port_id, self_client_, in_port_);
+    spdlog::info("Subscribed {}:{} -> {}:{}. Printing events...", src_.client_id, src_.port_id,
+        self_client_, in_port_);
 
     int rc = 0;
     while (true) {
@@ -252,7 +258,7 @@ void MidiRecorder::record_loop_(void) {
             throw_sys("poll");
         }
 
-        snd_seq_event_t* ev = nullptr;
+        snd_seq_event_t *ev = nullptr;
         while ((rc = snd_seq_event_input(seq_, &ev)) != -EAGAIN && ev != nullptr) {
             const auto now = std::chrono::steady_clock::now();
             const double ms = std::chrono::duration<double, std::milli>(now - t0_).count();
@@ -268,4 +274,3 @@ void MidiRecorder::record_loop_(void) {
 }
 
 } // namespace pr::midi
-
