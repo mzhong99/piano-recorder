@@ -1,0 +1,47 @@
+# .clang-format
+Language:        Cpp
+Standard:        c++20
+
+# Indentation
+IndentWidth:     4
+TabWidth:        4
+UseTab:          Never
+
+# Braces and wrapping
+BreakBeforeBraces: Attach
+AllowShortIfStatementsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortLoopsOnASingleLine: false
+
+# Pointer and reference alignment (Qt style)
+PointerAlignment: Right
+ReferenceAlignment: Right
+
+# Spacing
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpacesInAngles: false
+SpaceAfterCStyleCast: false
+
+# Line length
+ColumnLimit:     100
+
+# Includes
+SortIncludes: true
+IncludeBlocks:  Preserve
+
+# Comments
+ReflowComments: true
+
+# Misc Qt-ish preferences
+AlignAfterOpenBracket: Align
+AlignOperands: true
+AlignTrailingComments: true
+BinPackArguments: false
+BinPackParameters: false
+Cpp11BracedListStyle: true
+DerivePointerAlignment: false
+FixNamespaceComments: true
+NamespaceIndentation: All
+
+
