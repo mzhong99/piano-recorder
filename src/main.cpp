@@ -1,6 +1,10 @@
 #include "midi_device.hpp"
+#include "midi_recorder.hpp"
+
 #include <cxxopts.hpp>
 #include <string>
+#include <thread>
+#include <chrono>
 #include <httplib.h>
 #include <iostream>
 #include <spdlog/fmt/ostr.h>
@@ -46,6 +50,13 @@ int main(int argc, char **argv) {
             std::string possible_port = fmt::format("{}:{}", device.client_id, device.port_id);
             if (chosen_port == possible_port) {
                 spdlog::info("Selected: {}", fmt::streamed(device));
+
+                pr::midi::MidiRecorder recorder{device};
+                recorder.start();
+
+                while (true) {
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                }
             }
         }
     }

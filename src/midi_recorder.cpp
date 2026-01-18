@@ -1,6 +1,8 @@
 // midi_recorder_print.cpp
 #include "midi_recorder.hpp"
 
+#include <spdlog/spdlog.h>
+
 #include <errno.h>
 #include <poll.h>
 #include <cstdio>
@@ -20,7 +22,7 @@ static void throw_sys(const char* what) {
 
 MidiRecorder::MidiRecorder(MidiPortHandle src) : src_(src) {}
 MidiRecorder::~MidiRecorder() { stop(); }
-
+;
 void MidiRecorder::start() {
     bool expected = false;
     if (!running_.compare_exchange_strong(expected, true)) return;
@@ -70,6 +72,7 @@ void MidiRecorder::alsa_create_input_port_() {
         "Recorder In",
         SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE,
         SND_SEQ_PORT_TYPE_APPLICATION);
+    snd_seq_nonblock(seq_, 1);
 
     if (in_port_ < 0) {
         int rc = in_port_;
@@ -182,18 +185,26 @@ void MidiRecorder::record_loop_(void) {
                 src_.client_id, src_.port_id, self_client_, in_port_);
     std::fflush(stdout);
 
+    int rc = 0;
     while (true) {
-        int rc = ::poll(fds.data(), (nfds_t)fds.size(), 50); // timeout => stop latency
+        rc = ::poll(fds.data(), (nfds_t)fds.size(), 50); // timeout => stop latency
+        if (rc == 0) {
+            continue;
+        }
+
         if (rc < 0) {
-            if (errno == EINTR) continue;
+            if (errno == EINTR) {
+                continue;
+            }
             throw_sys("poll");
         }
-        if (rc == 0) continue;
 
-        while (snd_seq_event_input_pending(seq_, 0) > 0) {
+        while (true) {
             snd_seq_event_t* ev = nullptr;
-            int r = snd_seq_event_input(seq_, &ev);
-            if (r < 0 || !ev) break;
+            rc = snd_seq_event_input(seq_, &ev);
+            if (rc == -EAGAIN || !ev) {
+                break;
+            }
 
             const auto now = std::chrono::steady_clock::now();
             const double ms = std::chrono::duration<double, std::milli>(now - t0_).count();
