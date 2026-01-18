@@ -2,14 +2,81 @@
 #include "midi_recorder.hpp"
 
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/ostr.h>
 
+#include <iostream>
 #include <errno.h>
 #include <poll.h>
-#include <cstdio>
-#include <cstring>
+#include <stdio.h>
+#include <string.h>
+#include <string>
 #include <stdexcept>
+#include <map>
+
+static std::string midi_bytes_hex(const std::vector<unsigned char>& bytes) {
+    std::string out;
+    out.reserve(bytes.size() * 3);
+    for (size_t i = 0; i < bytes.size(); ++i) {
+        if (i) out.push_back(' ');
+        out += fmt::format("{:02X}", bytes[i]);
+    }
+    return out;
+}
+
+std::ostream& operator<<(std::ostream& os, const snd_seq_event_t& ev) {
+    std::map<int, std::string> EVENT_TYPE_NAME = {
+        {SND_SEQ_EVENT_NOTEON, "NOTEON"},
+        {SND_SEQ_EVENT_NOTEOFF, "NOTEOFF"},
+        {SND_SEQ_EVENT_CONTROLLER, "CC"},
+        {SND_SEQ_EVENT_PGMCHANGE, "PGM"},
+        {SND_SEQ_EVENT_CHANPRESS, "CHANPRESS"},
+        {SND_SEQ_EVENT_PITCHBEND, "PITCHBEND"},
+        {SND_SEQ_EVENT_SYSEX, "SYSEX"},
+    };
+
+    // clang-format off
+    switch (ev.type) {
+        case SND_SEQ_EVENT_NOTEON:
+        case SND_SEQ_EVENT_NOTEOFF:
+            os << fmt::format("{} ch={} note={} vel={}", EVENT_TYPE_NAME[ev.type],
+                ev.data.note.channel, ev.data.note.note, ev.data.note.velocity);
+            break;
+
+        case SND_SEQ_EVENT_CONTROLLER:
+            os << fmt::format("{} ch={} cc={} val={}", EVENT_TYPE_NAME[ev.type],
+                ev.data.control.channel, ev.data.control.param, ev.data.control.value);
+            break;
+
+        case SND_SEQ_EVENT_PGMCHANGE:
+            os << fmt::format("{} ch={} program={}", EVENT_TYPE_NAME[ev.type],
+                ev.data.control.channel, ev.data.control.value);
+            break;
+
+        case SND_SEQ_EVENT_CHANPRESS:
+            os << fmt::format("{} ch={} pressure={}", EVENT_TYPE_NAME[ev.type],
+                ev.data.control.channel, ev.data.control.value);
+            break;
+
+        case SND_SEQ_EVENT_PITCHBEND:
+            os << fmt::format("{} ch={} value={}", EVENT_TYPE_NAME[ev.type],
+                ev.data.control.channel, ev.data.control.value);
+            break;
+
+        case SND_SEQ_EVENT_SYSEX:
+            os << fmt::format("{} len=", EVENT_TYPE_NAME[ev.type], ev.data.ext.len);
+            break;
+
+        default:
+            break;
+    }
+    // clang-format on
+
+    return os;
+}
 
 namespace pr::midi {
+
+
 
 static void throw_alsa(const char* what, int rc) {
     throw std::runtime_error(std::string(what) + ": " + snd_strerror(rc));
@@ -81,8 +148,8 @@ void MidiRecorder::alsa_create_input_port_() {
 }
 
 void MidiRecorder::alsa_subscribe_() {
-    snd_seq_addr_t src_addr{ .client = (unsigned char)src_.client_id, .port = (unsigned char)src_.port_id };
-    snd_seq_addr_t dst_addr{ .client = (unsigned char)self_client_, .port = (unsigned char)in_port_ };
+    snd_seq_addr_t src_addr{ .client = (uint8_t)src_.client_id, .port = (uint8_t)src_.port_id };
+    snd_seq_addr_t dst_addr{ .client = (uint8_t)self_client_, .port = (uint8_t)in_port_ };
 
     snd_seq_port_subscribe_t* sub = nullptr;
     snd_seq_port_subscribe_alloca(&sub);
@@ -96,8 +163,8 @@ void MidiRecorder::alsa_subscribe_() {
 void MidiRecorder::alsa_unsubscribe_best_effort_() noexcept {
     if (!seq_ || in_port_ < 0 || self_client_ < 0) return;
 
-    snd_seq_addr_t src_addr{ .client = (unsigned char)src_.client_id, .port = (unsigned char)src_.port_id };
-    snd_seq_addr_t dst_addr{ .client = (unsigned char)self_client_, .port = (unsigned char)in_port_ };
+    snd_seq_addr_t src_addr{ .client = (uint8_t)src_.client_id, .port = (uint8_t)src_.port_id };
+    snd_seq_addr_t dst_addr{ .client = (uint8_t)self_client_, .port = (uint8_t)in_port_ };
 
     snd_seq_port_subscribe_t* sub = nullptr;
     snd_seq_port_subscribe_alloca(&sub);
@@ -107,61 +174,48 @@ void MidiRecorder::alsa_unsubscribe_best_effort_() noexcept {
     (void)snd_seq_unsubscribe_port(seq_, sub);
 }
 
-const char* MidiRecorder::event_type_name_(int type) noexcept {
-    switch (type) {
-        case SND_SEQ_EVENT_NOTEON: return "NOTEON";
-        case SND_SEQ_EVENT_NOTEOFF: return "NOTEOFF";
-        case SND_SEQ_EVENT_CONTROLLER: return "CC";
-        case SND_SEQ_EVENT_PGMCHANGE: return "PGM";
-        case SND_SEQ_EVENT_CHANPRESS: return "CHANPRESS";
-        case SND_SEQ_EVENT_PITCHBEND: return "PITCHBEND";
-        case SND_SEQ_EVENT_SYSEX: return "SYSEX";
-        default: return "OTHER";
-    }
-}
-
-void MidiRecorder::print_hex_(const unsigned char* p, size_t n) noexcept {
+void MidiRecorder::print_hex_(const uint8_t* p, size_t n) noexcept {
     for (size_t i = 0; i < n; ++i) {
         std::printf("%02X%s", p[i], (i + 1 == n) ? "" : " ");
     }
 }
 
-bool MidiRecorder::alsa_to_midi_bytes_(const snd_seq_event_t& ev, std::vector<unsigned char>& out) {
+bool MidiRecorder::alsa_to_midi_bytes_(const snd_seq_event_t& ev, std::vector<uint8_t>& out) {
     out.clear();
-    auto ch = [](int c) -> unsigned char { return static_cast<unsigned char>(c & 0x0F); };
+    auto ch = [](int c) -> uint8_t { return static_cast<uint8_t>(c & 0x0F); };
 
     switch (ev.type) {
     case SND_SEQ_EVENT_NOTEON:
-        out = { static_cast<unsigned char>(0x90 | ch(ev.data.note.channel)),
-                static_cast<unsigned char>(ev.data.note.note & 0x7F),
-                static_cast<unsigned char>(ev.data.note.velocity & 0x7F) };
+        out = { static_cast<uint8_t>(0x90 | ch(ev.data.note.channel)),
+                static_cast<uint8_t>(ev.data.note.note & 0x7F),
+                static_cast<uint8_t>(ev.data.note.velocity & 0x7F) };
         return true;
     case SND_SEQ_EVENT_NOTEOFF:
-        out = { static_cast<unsigned char>(0x80 | ch(ev.data.note.channel)),
-                static_cast<unsigned char>(ev.data.note.note & 0x7F),
-                static_cast<unsigned char>(ev.data.note.velocity & 0x7F) };
+        out = { static_cast<uint8_t>(0x80 | ch(ev.data.note.channel)),
+                static_cast<uint8_t>(ev.data.note.note & 0x7F),
+                static_cast<uint8_t>(ev.data.note.velocity & 0x7F) };
         return true;
     case SND_SEQ_EVENT_CONTROLLER:
-        out = { static_cast<unsigned char>(0xB0 | ch(ev.data.control.channel)),
-                static_cast<unsigned char>(ev.data.control.param & 0x7F),
-                static_cast<unsigned char>(ev.data.control.value & 0x7F) };
+        out = { static_cast<uint8_t>(0xB0 | ch(ev.data.control.channel)),
+                static_cast<uint8_t>(ev.data.control.param & 0x7F),
+                static_cast<uint8_t>(ev.data.control.value & 0x7F) };
         return true;
     case SND_SEQ_EVENT_PGMCHANGE:
-        out = { static_cast<unsigned char>(0xC0 | ch(ev.data.control.channel)),
-                static_cast<unsigned char>(ev.data.control.value & 0x7F) };
+        out = { static_cast<uint8_t>(0xC0 | ch(ev.data.control.channel)),
+                static_cast<uint8_t>(ev.data.control.value & 0x7F) };
         return true;
     case SND_SEQ_EVENT_CHANPRESS:
-        out = { static_cast<unsigned char>(0xD0 | ch(ev.data.control.channel)),
-                static_cast<unsigned char>(ev.data.control.value & 0x7F) };
+        out = { static_cast<uint8_t>(0xD0 | ch(ev.data.control.channel)),
+                static_cast<uint8_t>(ev.data.control.value & 0x7F) };
         return true;
     case SND_SEQ_EVENT_PITCHBEND: {
         int v = ev.data.control.value;
         if (v < -8192) v = -8192;
         if (v >  8191) v =  8191;
         int pb = v + 8192; // 0..16383
-        out = { static_cast<unsigned char>(0xE0 | ch(ev.data.control.channel)),
-                static_cast<unsigned char>(pb & 0x7F),
-                static_cast<unsigned char>((pb >> 7) & 0x7F) };
+        out = { static_cast<uint8_t>(0xE0 | ch(ev.data.control.channel)),
+                static_cast<uint8_t>(pb & 0x7F),
+                static_cast<uint8_t>((pb >> 7) & 0x7F) };
         return true;
     }
     case SND_SEQ_EVENT_SYSEX:
@@ -181,9 +235,8 @@ void MidiRecorder::record_loop_(void) {
     std::vector<pollfd> fds(static_cast<size_t>(ndesc));
     snd_seq_poll_descriptors(seq_, fds.data(), ndesc, POLLIN);
 
-    std::printf("Subscribed %d:%d -> %d:%d. Printing events...\n",
-                src_.client_id, src_.port_id, self_client_, in_port_);
-    std::fflush(stdout);
+    spdlog::info("Subscribed {}:{} -> {}:{}. Printing events...",
+            src_.client_id, src_.port_id, self_client_, in_port_);
 
     int rc = 0;
     while (true) {
@@ -199,42 +252,15 @@ void MidiRecorder::record_loop_(void) {
             throw_sys("poll");
         }
 
-        while (true) {
-            snd_seq_event_t* ev = nullptr;
-            rc = snd_seq_event_input(seq_, &ev);
-            if (rc == -EAGAIN || !ev) {
-                break;
-            }
-
+        snd_seq_event_t* ev = nullptr;
+        while ((rc = snd_seq_event_input(seq_, &ev)) != -EAGAIN && ev != nullptr) {
             const auto now = std::chrono::steady_clock::now();
             const double ms = std::chrono::duration<double, std::milli>(now - t0_).count();
 
-            std::printf("[+%9.3f ms] %-9s", ms, event_type_name_(ev->type));
-
-            if (ev->type == SND_SEQ_EVENT_NOTEON || ev->type == SND_SEQ_EVENT_NOTEOFF) {
-                std::printf(" ch=%d note=%d vel=%d",
-                            ev->data.note.channel, ev->data.note.note, ev->data.note.velocity);
-            } else if (ev->type == SND_SEQ_EVENT_CONTROLLER) {
-                std::printf(" ch=%d cc=%d val=%d",
-                            ev->data.control.channel, ev->data.control.param, ev->data.control.value);
-            } else if (ev->type == SND_SEQ_EVENT_PGMCHANGE) {
-                std::printf(" ch=%d program=%d",
-                            ev->data.control.channel, ev->data.control.value);
-            } else if (ev->type == SND_SEQ_EVENT_PITCHBEND) {
-                std::printf(" ch=%d value=%d",
-                            ev->data.control.channel, ev->data.control.value);
-            } else if (ev->type == SND_SEQ_EVENT_SYSEX) {
-                std::printf(" len=%d", ev->data.ext.len);
-            }
-
-            std::vector<unsigned char> bytes;
+            std::vector<uint8_t> bytes;
             if (alsa_to_midi_bytes_(*ev, bytes) && !bytes.empty()) {
-                std::printf(" | ");
-                print_hex_(bytes.data(), bytes.size());
+                spdlog::info("[{:.3f} ms] {} | {}", ms, fmt::streamed(*ev), midi_bytes_hex(bytes));
             }
-
-            std::printf("\n");
-            std::fflush(stdout);
 
             snd_seq_free_event(ev);
         }

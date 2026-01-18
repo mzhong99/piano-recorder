@@ -7,8 +7,12 @@
 #include <thread>
 #include <string>
 #include <vector>
+#include <iosfwd>
 
 #include "midi_device.hpp"
+
+// has to be in global namespace or else fmt::streamed() can't see it
+std::ostream& operator<<(std::ostream& os, const snd_seq_event_t& ev);
 
 namespace pr::midi {
 
@@ -33,7 +37,6 @@ private:
 
     void record_loop_(void);
 
-    static const char* event_type_name_(int t) noexcept;
     static void print_hex_(const unsigned char* p, size_t n) noexcept;
 
     static bool alsa_to_midi_bytes_(const snd_seq_event_t& ev, std::vector<unsigned char>& out);
