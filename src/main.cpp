@@ -2,9 +2,10 @@
 #include <cxxopts.hpp>
 #include <httplib.h>
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/ostr.h>
 #include <spdlog/version.h>
+#include "midi_device.hpp"
 
-// ALSA header (from alsa-lib)
 #include <alsa/asoundlib.h>
 
 int main(int argc, char** argv) {
@@ -17,6 +18,13 @@ int main(int argc, char** argv) {
     if (result["help"].as<bool>()) {
         std::cout << options.help() << "\n";
         return 0;
+    }
+
+    if (result["list"].as<bool>()) {
+        auto devices = pr::midi::enumerate_midi_sources();
+        for (const auto &device : devices) {
+            spdlog::info("Device: {}", fmt::streamed(device));
+        }
     }
 
     // Prove ALSA link works: print library version string macro
