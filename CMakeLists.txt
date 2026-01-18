@@ -12,6 +12,19 @@ add_subdirectory(third_party/cxxopts EXCLUDE_FROM_ALL)
 add_subdirectory(third_party/cpp-httplib EXCLUDE_FROM_ALL)
 add_subdirectory(third_party/spdlog EXCLUDE_FROM_ALL)
 
+# midifile tells you to copy and paste + statically compile stuff yourself so that's what we do
+add_library(midifile STATIC
+  third_party/midifile/src/MidiFile.cpp
+  third_party/midifile/src/MidiEvent.cpp
+  third_party/midifile/src/MidiMessage.cpp
+)
+
+target_include_directories(midifile PUBLIC
+    ${CMAKE_SOURCE_DIR}/third_party/midifile/include
+)
+
+add_library(midifile::midifile ALIAS midifile)
+
 # ALSA via pkg-config (system dependency)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
@@ -32,6 +45,7 @@ target_link_libraries(piano-recorder PRIVATE
     cxxopts
     httplib::httplib
     spdlog::spdlog_header_only
+    midifile::midifile
 )
 
 # Optional warnings
