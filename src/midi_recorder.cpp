@@ -13,17 +13,6 @@
 #include <string.h>
 #include <string>
 
-static std::string midi_bytes_hex(const std::vector<unsigned char> &bytes) {
-    std::string out;
-    out.reserve(bytes.size() * 3);
-    for (size_t i = 0; i < bytes.size(); ++i) {
-        if (i)
-            out.push_back(' ');
-        out += fmt::format("{:02X}", bytes[i]);
-    }
-    return out;
-}
-
 std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev) {
     std::map<int, std::string> EVENT_TYPE_NAME = {
         {SND_SEQ_EVENT_NOTEON, "NOTEON"},
@@ -77,6 +66,18 @@ std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev) {
 
 namespace pr::midi {
 
+static std::string midi_bytes_hex(const std::vector<unsigned char> &bytes) {
+    std::string out;
+    out.reserve(bytes.size() * 3);
+    for (size_t i = 0; i < bytes.size(); ++i) {
+        if (i) {
+            out.push_back(' ');
+        }
+        out += fmt::format("{:02X}", bytes[i]);
+    }
+    return out;
+}
+
 static void throw_alsa(const char *what, int rc) {
     throw std::runtime_error(std::string(what) + ": " + snd_strerror(rc));
 }
@@ -86,10 +87,16 @@ static void throw_sys(const char *what) {
     throw std::runtime_error(std::string(what) + ": " + std::strerror(e));
 }
 
-MidiRecorder::MidiRecorder(MidiPortHandle src) : src_(src) {}
+MidiRecorder::MidiRecorder(MidiPortHandle src, const std::filesystem::path &out_path) : src_(src), out_path_(out_path) {
+    midi_file_.absoluteTicks();
+    midi_file_.setTicksPerQuarterNote(kPpq);
+    midi_file_.addTempo(0, 0, kTempoBpm);
+}
+
 MidiRecorder::~MidiRecorder() {
     stop();
 };
+
 void MidiRecorder::start() {
     bool expected = false;
     if (!running_.compare_exchange_strong(expected, true))
@@ -119,13 +126,15 @@ void MidiRecorder::stop() {
 
 void MidiRecorder::alsa_open_() {
     int rc = snd_seq_open(&seq_, "default", SND_SEQ_OPEN_INPUT, 0);
-    if (rc < 0)
+    if (rc < 0) {
         throw_alsa("snd_seq_open", rc);
+    }
 
     snd_seq_set_client_name(seq_, "piano-recorder");
     self_client_ = snd_seq_client_id(seq_);
-    if (self_client_ < 0)
+    if (self_client_ < 0) {
         throw std::runtime_error("snd_seq_client_id failed");
+    }
 }
 
 void MidiRecorder::alsa_close_() noexcept {
@@ -175,12 +184,6 @@ void MidiRecorder::alsa_unsubscribe_best_effort_() noexcept {
     snd_seq_port_subscribe_set_dest(sub, &dst_addr);
 
     (void)snd_seq_unsubscribe_port(seq_, sub);
-}
-
-void MidiRecorder::print_hex_(const uint8_t *p, size_t n) noexcept {
-    for (size_t i = 0; i < n; ++i) {
-        std::printf("%02X%s", p[i], (i + 1 == n) ? "" : " ");
-    }
 }
 
 bool MidiRecorder::alsa_to_midi_bytes_(const snd_seq_event_t &ev, std::vector<uint8_t> &out) {
@@ -244,33 +247,61 @@ void MidiRecorder::record_loop_(void) {
     spdlog::info("Subscribed {}:{} -> {}:{}. Printing events...", src_.client_id, src_.port_id,
         self_client_, in_port_);
 
+    TickClock tick_clock{};
+
+    std::chrono::steady_clock::time_point time_last_saved = std::chrono::steady_clock::now();
+
     int rc = 0;
     while (true) {
         rc = ::poll(fds.data(), (nfds_t)fds.size(), 50); // timeout => stop latency
-        if (rc == 0) {
-            continue;
-        }
-
         if (rc < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
             throw_sys("poll");
         }
 
         snd_seq_event_t *ev = nullptr;
         while ((rc = snd_seq_event_input(seq_, &ev)) != -EAGAIN && ev != nullptr) {
-            const auto now = std::chrono::steady_clock::now();
-            const double ms = std::chrono::duration<double, std::milli>(now - t0_).count();
+            int now_tick = tick_clock.now_tick();
 
             std::vector<uint8_t> bytes;
             if (alsa_to_midi_bytes_(*ev, bytes) && !bytes.empty()) {
-                spdlog::info("[{:.3f} ms] {} | {}", ms, fmt::streamed(*ev), midi_bytes_hex(bytes));
+                spdlog::info("[{}] {} | {}", now_tick, fmt::streamed(*ev), midi_bytes_hex(bytes));
+                midi_file_.addEvent(0, now_tick, bytes);
             }
 
             snd_seq_free_event(ev);
         }
+
+        std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+        int64_t ms_since_save =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - time_last_saved).count();
+        if (ms_since_save > kAutoSaveMs) {
+            time_last_saved = now;
+            save_midi_();
+        }
     }
+}
+
+void MidiRecorder::save_midi_(void) {
+    std::filesystem::path tmp_path{out_path_.string() + ".tmp"};
+
+    // copy the midi file before writing it
+    smf::MidiFile midi_file = midi_file_;
+    midi_file.sortTracks();
+    midi_file.deltaTicks();
+
+    if (!midi_file.write(tmp_path.string())) {
+        spdlog::warn("Could not write to {}", tmp_path.string());
+        return;
+    }
+
+    int fd = ::open(tmp_path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd > 0) {
+        (void)::fdatasync(fd);
+        ::close(fd);
+    }
+
+    rename(tmp_path.c_str(), out_path_.c_str());
+    spdlog::info("Wrote to {}", out_path_.string());
 }
 
 } // namespace pr::midi

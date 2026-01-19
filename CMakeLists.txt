@@ -14,9 +14,12 @@ add_subdirectory(third_party/spdlog EXCLUDE_FROM_ALL)
 
 # midifile tells you to copy and paste + statically compile stuff yourself so that's what we do
 add_library(midifile STATIC
+    third_party/midifile/src/Binasc.cpp
     third_party/midifile/src/MidiFile.cpp
     third_party/midifile/src/MidiEvent.cpp
+    third_party/midifile/src/MidiEventList.cpp
     third_party/midifile/src/MidiMessage.cpp
+    third_party/midifile/src/Options.cpp
 )
 
 target_include_directories(midifile PUBLIC

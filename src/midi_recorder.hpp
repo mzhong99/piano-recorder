@@ -4,21 +4,50 @@
 
 #include <atomic>
 #include <chrono>
+#include <algorithm>
 #include <iosfwd>
 #include <string>
 #include <thread>
 #include <vector>
+#include <filesystem>
 
+#include <math.h>
+
+#include <MidiFile.h>
 #include "midi_device.hpp"
 
 // has to be in global namespace or else fmt::streamed() can't see it
 std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev);
 
+static constexpr int kPpq = 960;
+static constexpr int64_t kAutoSaveMs = 500;
+static constexpr double kTempoBpm = 120.0;
+
 namespace pr::midi {
+
+struct TickClock {
+    std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+    int last_tick = 0;
+
+    int now_tick() {
+        using dsec = std::chrono::duration<double>;
+
+        const auto now = std::chrono::steady_clock::now();
+        const double secs = std::chrono::duration_cast<dsec>(now - t0).count();
+        const double ticks_per_sec = kPpq * (kTempoBpm / 60.0);
+
+        int tick = (secs <= 0.0) ? 0 : int(std::llround(secs * ticks_per_sec));
+
+        tick = std::max(tick, last_tick);
+        last_tick = tick;
+
+        return tick;
+    }
+};
 
 class MidiRecorder {
 public:
-    explicit MidiRecorder(MidiPortHandle src);
+    explicit MidiRecorder(MidiPortHandle src, const std::filesystem::path &out_path);
     ~MidiRecorder();
 
     MidiRecorder(const MidiRecorder &) = delete;
@@ -38,16 +67,17 @@ private:
     void alsa_unsubscribe_best_effort_() noexcept;
 
     void record_loop_(void);
-
-    static void print_hex_(const unsigned char *p, size_t n) noexcept;
+    void save_midi_(void);
 
     static bool alsa_to_midi_bytes_(const snd_seq_event_t &ev, std::vector<unsigned char> &out);
 
 private:
+    smf::MidiFile midi_file_;
     MidiPortHandle src_;
 
     std::atomic<bool> running_{false};
     std::thread thread_{};
+    std::filesystem::path out_path_;
 
     // ALSA sequencer
     snd_seq_t *seq_{nullptr};

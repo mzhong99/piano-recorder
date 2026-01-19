@@ -20,6 +20,7 @@ int main(int argc, char **argv) {
         ("l,list", "List ALSA sequencer clients/ports (placeholder)")
         ("V,version", "Print library versions")
         ("p,port", "Select source port as client:port (e.g., 24:0)", cxxopts::value<std::string>())
+        ("o,output", "Select path to output .mid file", cxxopts::value<std::string>())
         ("h,help", "Print help");
     // clang-format on
 
@@ -43,15 +44,17 @@ int main(int argc, char **argv) {
         spdlog::info("    alsa: {}", SND_LIB_VERSION_STR);
     }
 
-    if (result.count("port")) {
+    if (result.count("port") and result.count("output")) {
         std::string chosen_port = result["port"].as<std::string>();
+        std::string chosen_output = result["output"].as<std::string>();
+
         auto devices = pr::midi::enumerate_midi_sources();
         for (const auto &device : devices) {
             std::string possible_port = fmt::format("{}:{}", device.client_id, device.port_id);
             if (chosen_port == possible_port) {
                 spdlog::info("Selected: {}", fmt::streamed(device));
 
-                pr::midi::MidiRecorder recorder{device};
+                pr::midi::MidiRecorder recorder{device, chosen_output};
                 recorder.start();
 
                 while (true) {
