@@ -1,7 +1,7 @@
 #include "alsa_sequencer.hpp"
+#include <iostream>
 #include <spdlog/fmt/ostr.h>
 #include <spdlog/spdlog.h>
-#include <iostream>
 
 static void throw_alsa(const char *what, int rc) {
     throw std::runtime_error(std::string(what) + ": " + snd_strerror(rc));
@@ -207,4 +207,4 @@ bool AlsaSequencer::to_midi_bytes_(const snd_seq_event_t &ev, std::vector<uint8_
     }
 }
 
-}  // namespace pr::midi
+} // namespace pr::midi

@@ -2,21 +2,21 @@
 
 #include <alsa/asoundlib.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <algorithm>
+#include <filesystem>
 #include <iosfwd>
 #include <string>
 #include <thread>
 #include <vector>
-#include <filesystem>
 
 #include <math.h>
 
 #include <MidiFile.h>
 
-#include "midi_device.hpp"
 #include "alsa_sequencer.hpp"
+#include "midi_device.hpp"
 
 // has to be in global namespace or else fmt::streamed() can't see it
 std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev);

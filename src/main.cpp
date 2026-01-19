@@ -13,16 +13,16 @@
 
 #include <alsa/asoundlib.h>
 
-spdlog::level::level_enum parse_log_level(const std::string& s) {
+spdlog::level::level_enum parse_log_level(const std::string &s) {
     static const std::unordered_map<std::string, spdlog::level::level_enum> map{
-        {"trace",    spdlog::level::trace},
-        {"debug",    spdlog::level::debug},
-        {"info",     spdlog::level::info},
-        {"warn",     spdlog::level::warn},
-        {"warning",  spdlog::level::warn},
-        {"error",    spdlog::level::err},
+        {"trace", spdlog::level::trace},
+        {"debug", spdlog::level::debug},
+        {"info", spdlog::level::info},
+        {"warn", spdlog::level::warn},
+        {"warning", spdlog::level::warn},
+        {"error", spdlog::level::err},
         {"critical", spdlog::level::critical},
-        {"off",      spdlog::level::off},
+        {"off", spdlog::level::off},
     };
 
     auto it = map.find(s);
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
     const auto level = parse_log_level(level_str);
 
     spdlog::set_level(level);
-    spdlog::flush_on(level);   // optional, but often useful for field tools
+    spdlog::flush_on(level); // optional, but often useful for field tools
 
     if (result["list"].as<bool>()) {
         auto devices = pr::midi::enumerate_midi_sources();

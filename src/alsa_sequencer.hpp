@@ -3,10 +3,10 @@
 #include <alsa/asoundlib.h>
 #include <poll.h>
 
-#include <string>
-#include <vector>
 #include <iosfwd>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "midi_device.hpp"
 
@@ -36,4 +36,4 @@ private:
     MidiPortHandle input_;
 };
 
-}  // namespace pr::midi
+} // namespace pr::midi

@@ -29,7 +29,8 @@ static void throw_sys(const char *what) {
     throw std::runtime_error(std::string(what) + ": " + std::strerror(e));
 }
 
-MidiRecorder::MidiRecorder(MidiPortHandle src, const std::filesystem::path &out_path) : src_(src), out_path_(out_path) {
+MidiRecorder::MidiRecorder(MidiPortHandle src, const std::filesystem::path &out_path)
+    : src_(src), out_path_(out_path) {
     midi_file_.absoluteTicks();
     midi_file_.setTicksPerQuarterNote(kPpq);
     midi_file_.addTempo(0, 0, kTempoBpm);
