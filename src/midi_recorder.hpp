@@ -14,7 +14,9 @@
 #include <math.h>
 
 #include <MidiFile.h>
+
 #include "midi_device.hpp"
+#include "alsa_sequencer.hpp"
 
 // has to be in global namespace or else fmt::streamed() can't see it
 std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev);
@@ -53,15 +55,13 @@ public:
     MidiRecorder(const MidiRecorder &) = delete;
     MidiRecorder &operator=(const MidiRecorder &) = delete;
 
-    void start();
-    void stop();
-    bool running() const noexcept {
+    void start(void);
+    void stop(void);
+    bool running(void) const noexcept {
         return running_.load();
     }
 
 private:
-    void alsa_open_();
-    void alsa_close_() noexcept;
     void alsa_create_input_port_();
     void alsa_subscribe_();
     void alsa_unsubscribe_best_effort_() noexcept;
@@ -75,17 +75,11 @@ private:
     smf::MidiFile midi_file_;
     MidiPortHandle src_;
 
+    AlsaSequencer sequencer_{"piano-recorder", "Recorder In"};
+
     std::atomic<bool> running_{false};
     std::thread thread_{};
     std::filesystem::path out_path_;
-
-    // ALSA sequencer
-    snd_seq_t *seq_{nullptr};
-    int self_client_{-1};
-    int in_port_{-1};
-
-    // timing for printing
-    std::chrono::steady_clock::time_point t0_{};
 };
 
 } // namespace pr::midi

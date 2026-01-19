@@ -1,5 +1,7 @@
 #pragma once
 
+#include <alsa/asoundlib.h>
+
 #include <cstdint>
 #include <iosfwd>
 #include <string>
@@ -9,8 +11,8 @@
 namespace pr::midi {
 
 struct MidiPortHandle {
-    int client_id;
-    int port_id;
+    int client_id = -1;
+    int port_id = -1;
 
     std::string client_name;
     std::string port_name;
@@ -19,6 +21,14 @@ struct MidiPortHandle {
     uint32_t type;
 
     bool is_kernel;
+
+    constexpr bool is_valid(void) const {
+        return client_id > 0 && port_id > 0;
+    }
+
+    snd_seq_addr_t to_snd_addr(void) const {
+        return snd_seq_addr_t{.client = (unsigned char)client_id, .port = (unsigned char)port_id};
+    }
 };
 
 std::vector<MidiPortHandle> enumerate_midi_sources(void);

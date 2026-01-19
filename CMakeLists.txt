@@ -36,6 +36,7 @@ add_executable(piano-recorder
     src/main.cpp
     src/midi_recorder.cpp
     src/midi_device.cpp
+    src/alsa_sequencer.cpp
 )
 
 target_include_directories(piano-recorder

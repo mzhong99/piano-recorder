@@ -13,11 +13,31 @@
 
 #include <alsa/asoundlib.h>
 
+spdlog::level::level_enum parse_log_level(const std::string& s) {
+    static const std::unordered_map<std::string, spdlog::level::level_enum> map{
+        {"trace",    spdlog::level::trace},
+        {"debug",    spdlog::level::debug},
+        {"info",     spdlog::level::info},
+        {"warn",     spdlog::level::warn},
+        {"warning",  spdlog::level::warn},
+        {"error",    spdlog::level::err},
+        {"critical", spdlog::level::critical},
+        {"off",      spdlog::level::off},
+    };
+
+    auto it = map.find(s);
+    if (it == map.end()) {
+        throw std::runtime_error("invalid log level: " + s);
+    }
+    return it->second;
+}
+
 int main(int argc, char **argv) {
     // clang-format off
     cxxopts::Options options("piano-recorder", "MIDI recorder prototype");
     options.add_options()
-        ("l,list", "List ALSA sequencer clients/ports (placeholder)")
+        ("l,list", "List ALSA sequencer clients/ports")
+        ("L,log-level", "trace|debug|info|warn|error|critical|off", cxxopts::value<std::string>()->default_value("info"))
         ("V,version", "Print library versions")
         ("p,port", "Select source port as client:port (e.g., 24:0)", cxxopts::value<std::string>())
         ("o,output", "Select path to output .mid file", cxxopts::value<std::string>())
@@ -29,6 +49,12 @@ int main(int argc, char **argv) {
         std::cout << options.help() << "\n";
         return 0;
     }
+
+    const auto level_str = result["log-level"].as<std::string>();
+    const auto level = parse_log_level(level_str);
+
+    spdlog::set_level(level);
+    spdlog::flush_on(level);   // optional, but often useful for field tools
 
     if (result["list"].as<bool>()) {
         auto devices = pr::midi::enumerate_midi_sources();
