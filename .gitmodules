@@ -10,3 +10,9 @@
 [submodule "third_party/midifile"]
 	path = third_party/midifile
 	url = https://github.com/craigsapp/midifile
+[submodule "third_party/magic_enum"]
+	path = third_party/magic_enum
+	url = https://github.com/Neargye/magic_enum.git
+[submodule "third_party/PlatformFolders"]
+	path = third_party/PlatformFolders
+	url = https://github.com/sago007/PlatformFolders.git
