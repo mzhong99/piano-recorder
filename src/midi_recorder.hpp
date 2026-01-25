@@ -63,6 +63,7 @@ public:
 
 private:
     void record_loop_(void);
+    void do_periodic_save_(void);
     void save_midi_(void);
 
 private:
@@ -74,6 +75,7 @@ private:
     std::atomic<bool> running_{false};
     std::thread thread_{};
     std::filesystem::path out_path_;
+    std::chrono::steady_clock::time_point time_last_saved_{std::chrono::steady_clock::now()};
 };
 
 } // namespace pr::midi

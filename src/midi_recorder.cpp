@@ -73,11 +73,9 @@ void MidiRecorder::record_loop_(void) {
     spdlog::info("Logging events...");
 
     TickClock tick_clock{};
-    std::chrono::steady_clock::time_point time_last_saved = std::chrono::steady_clock::now();
 
     while (true) {
-        int rc = poll(fds.data(), (nfds_t)fds.size(), 50); // timeout => stop latency
-        if (rc < 0) {
+        if (poll(fds.data(), (nfds_t)fds.size(), 50) < 0) {
             throw_sys("poll");
         }
 
@@ -99,13 +97,17 @@ void MidiRecorder::record_loop_(void) {
             event = sequencer_.get_event();
         }
 
-        std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-        int64_t ms_since_save =
-            std::chrono::duration_cast<std::chrono::milliseconds>(now - time_last_saved).count();
-        if (ms_since_save > kAutoSaveMs) {
-            time_last_saved = now;
-            save_midi_();
-        }
+        do_periodic_save_();
+    }
+}
+
+void MidiRecorder::do_periodic_save_(void) {
+    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    int64_t ms_since_save =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - time_last_saved_).count();
+    if (ms_since_save > kAutoSaveMs) {
+        time_last_saved_ = now;
+        save_midi_();
     }
 }
 

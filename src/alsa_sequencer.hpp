@@ -23,7 +23,8 @@ struct MidiMsg {
 };
 
 struct AnnounceMsg {
-    AnnounceType data;
+    AnnounceType type;
+    MidiPortHandle addr;
 };
 
 using SequencerMsg = std::variant<MidiMsg, AnnounceMsg>;

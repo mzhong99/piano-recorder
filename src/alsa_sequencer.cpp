@@ -119,6 +119,8 @@ AlsaSequencer::AlsaSequencer(const std::string &client_name, const std::string &
     input_.port_id = snd_seq_create_simple_port(seq_, port_name.c_str(),
         SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE, SND_SEQ_PORT_TYPE_APPLICATION);
     check_alsa("snd_seq_create_simple_port", input_.port_id);
+
+    subscribe_announcements_();
 }
 
 AlsaSequencer::~AlsaSequencer(void) {
@@ -205,8 +207,11 @@ std::optional<SequencerMsg> AlsaSequencer::get_event(void) {
     }
 
     if (is_announce_event(ev->type)) {
-        AnnounceMsg msg{.data = to_announce_type(ev->type)};
-        if (AnnounceType::UNKNOWN != msg.data) {
+        AnnounceMsg msg{
+            .type = to_announce_type(ev->type),
+            .addr = MidiPortHandle::from_snd_addr(ev->data.addr),
+        };
+        if (AnnounceType::UNKNOWN != msg.type) {
             return msg;
         }
     }

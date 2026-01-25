@@ -29,6 +29,10 @@ struct MidiPortHandle {
     snd_seq_addr_t to_snd_addr(void) const {
         return snd_seq_addr_t{.client = (unsigned char)client_id, .port = (unsigned char)port_id};
     }
+
+    static MidiPortHandle from_snd_addr(const snd_seq_addr_t &addr) {
+        return MidiPortHandle{.client_id = addr.client, .port_id = addr.port};
+    }
 };
 
 std::vector<MidiPortHandle> enumerate_midi_sources(void);
