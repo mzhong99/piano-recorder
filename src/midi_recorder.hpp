@@ -65,10 +65,12 @@ public:
 private:
     void record_loop_(void);
     void do_periodic_save_(void);
+    void do_autodetect_resubscribe_(void);
     void save_midi_(void);
 
 private:
     smf::MidiFile midi_file_;
+    MidiPortHandle preferred_src_;
     MidiPortHandle src_;
 
     AlsaSequencer sequencer_{"piano-recorder", "Recorder In"};

@@ -2,6 +2,7 @@
 #include <alsa/asoundlib.h>
 #include <map>
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/ostr.h>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -25,31 +26,17 @@ std::vector<MidiPortHandle> enumerate_midi_sources(void) {
 
     while (snd_seq_query_next_client(seq, cinfo) >= 0) {
         const int client = snd_seq_client_info_get_client(cinfo);
-        const char *cname = snd_seq_client_info_get_name(cinfo);
-        const bool is_kernel = snd_seq_client_info_get_type(cinfo) == SND_SEQ_CLIENT_SYSTEM;
-
         snd_seq_port_info_set_client(pinfo, client);
         snd_seq_port_info_set_port(pinfo, -1);
 
         while (snd_seq_query_next_port(seq, pinfo) >= 0) {
-            const unsigned capabilities = snd_seq_port_info_get_capability(pinfo);
+            int port_id = snd_seq_port_info_get_port(pinfo);
 
-            // We only care about source ports (ports that can write events to us)
-            if (!(capabilities & SND_SEQ_PORT_CAP_SUBS_WRITE)) {
-                continue;
+            MidiPortHandle handle = MidiPortHandle{client, port_id};
+            handle.expand_from_seq(seq);
+            if (handle.is_subscribable_source()) {
+                out.push_back(std::move(handle));
             }
-
-            MidiPortHandle h = {
-                .client_id = client,
-                .port_id = snd_seq_port_info_get_port(pinfo),
-                .client_name = cname ? cname : "",
-                .port_name = snd_seq_port_info_get_name(pinfo),
-                .capabilities = capabilities,
-                .type = snd_seq_port_info_get_type(pinfo),
-                .is_kernel = is_kernel,
-            };
-
-            out.push_back(std::move(h));
         }
     }
 

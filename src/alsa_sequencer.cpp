@@ -151,6 +151,10 @@ void AlsaSequencer::subscribe(const MidiPortHandle &new_src) {
 }
 
 void AlsaSequencer::subscribe_naive_(const MidiPortHandle &src) {
+    if (!src.is_valid()) {
+        return;
+    }
+
     snd_seq_addr_t src_addr = src.to_snd_addr();
     snd_seq_addr_t dst_addr = input_.to_snd_addr();
 
@@ -167,11 +171,7 @@ void AlsaSequencer::subscribe_naive_(const MidiPortHandle &src) {
 }
 
 void AlsaSequencer::subscribe_announcements_(void) {
-    MidiPortHandle announce = {
-        .client_id = SND_SEQ_CLIENT_SYSTEM,
-        .port_id = SND_SEQ_PORT_SYSTEM_ANNOUNCE,
-    };
-
+    MidiPortHandle announce = MidiPortHandle{SND_SEQ_CLIENT_SYSTEM, SND_SEQ_PORT_SYSTEM_ANNOUNCE};
     subscribe_naive_(announce);
 }
 

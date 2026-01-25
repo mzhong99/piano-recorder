@@ -66,23 +66,29 @@ int main(int argc, char **argv) {
         spdlog::info("    spdlog: {}.{}.{}", SPDLOG_VER_MAJOR, SPDLOG_VER_MINOR, SPDLOG_VER_PATCH);
         spdlog::info("    httplib: {}", CPPHTTPLIB_VERSION);
         spdlog::info("    alsa: {}", SND_LIB_VERSION_STR);
-    } else if (result.count("port") and result.count("output")) {
-        std::string chosen_port = result["port"].as<std::string>();
+    } else if (result.count("output")) {
+        pr::midi::MidiPortHandle handle;
         std::string chosen_output = result["output"].as<std::string>();
 
-        auto devices = pr::midi::enumerate_midi_sources();
-        for (const auto &device : devices) {
-            std::string possible_port = fmt::format("{}:{}", device.client_id, device.port_id);
-            if (chosen_port == possible_port) {
-                spdlog::info("Selected: {}", fmt::streamed(device));
+        if (result.count("port")) {
+            std::string chosen_port = result["port"].as<std::string>();
 
-                pr::midi::MidiRecorder recorder{device, chosen_output};
-                recorder.start();
-
-                while (true) {
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
+            auto devices = pr::midi::enumerate_midi_sources();
+            for (const auto &device : devices) {
+                std::string possible_port = fmt::format("{}:{}", device.client_id, device.port_id);
+                if (chosen_port == possible_port) {
+                    spdlog::info("Selected: {}", fmt::streamed(device));
+                    handle = device;
+                    break;
                 }
             }
+        }
+
+        pr::midi::MidiRecorder recorder{handle, chosen_output};
+        recorder.start();
+
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     }
 

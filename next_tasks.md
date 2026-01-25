@@ -4,8 +4,10 @@
 
 - Sqlite DB to save telemetry of interesting events
 
-- Package as both debian and RPM
+- DONE: Package as both debian and RPM
 
 - Dockerize
 
 - Create systemd script
+
+

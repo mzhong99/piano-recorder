@@ -33,7 +33,7 @@ static void throw_sys(const char *what) {
 }
 
 MidiRecorder::MidiRecorder(MidiPortHandle src, const std::filesystem::path &out_path)
-    : src_(src), out_path_(out_path) {
+    : preferred_src_(src), src_(src), out_path_(out_path) {
     midi_file_.absoluteTicks();
     midi_file_.setTicksPerQuarterNote(kPpq);
     midi_file_.addTempo(0, 0, kTempoBpm);
@@ -102,6 +102,10 @@ void MidiRecorder::record_loop_(void) {
 
         do_periodic_save_();
     }
+}
+
+void MidiRecorder::do_autodetect_resubscribe_(void) {
+    // put algorithm into 
 }
 
 void MidiRecorder::do_periodic_save_(void) {
