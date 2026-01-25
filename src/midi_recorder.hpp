@@ -14,6 +14,7 @@
 #include <math.h>
 
 #include <MidiFile.h>
+#include <magic_enum/magic_enum.hpp>
 
 #include "alsa_sequencer.hpp"
 #include "midi_device.hpp"

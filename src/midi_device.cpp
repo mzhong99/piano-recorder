@@ -100,4 +100,8 @@ std::ostream &operator<<(std::ostream &os, const MidiPortHandle &h) {
     return os;
 }
 
+bool operator==(const snd_seq_addr_t &lhs, const snd_seq_addr_t &rhs) {
+    return lhs.client == rhs.client && lhs.port == rhs.port;
+}
+
 } // namespace pr::midi

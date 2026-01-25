@@ -1,4 +1,4 @@
-// midi_recorder_print.cpp
+// midi_recorder.cpp
 #include "midi_recorder.hpp"
 
 #include <spdlog/fmt/ostr.h>
@@ -90,8 +90,11 @@ void MidiRecorder::record_loop_(void) {
                     midi_file_.addEvent(0, now_tick, msg.data);
                 },
                 [&](AnnounceMsg msg) {
-                    spdlog::info("wtf3");
-                    spdlog::info("NYI");
+                    spdlog::info("Got: {} - {}", magic_enum::enum_name(msg.type), fmt::streamed(msg.addr));
+                    if (msg.type == AnnounceType::PORT_START && msg.addr == src_) {
+                        spdlog::info("Resubscribe: {}", fmt::streamed(msg.addr));
+                        sequencer_.subscribe(src_);
+                    }
                 },
             }, event.value());
             event = sequencer_.get_event();

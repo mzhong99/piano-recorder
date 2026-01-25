@@ -13,6 +13,8 @@ add_compile_options("-Wno-missing-field-initializers")
 add_subdirectory(third_party/cxxopts EXCLUDE_FROM_ALL)
 add_subdirectory(third_party/cpp-httplib EXCLUDE_FROM_ALL)
 add_subdirectory(third_party/spdlog EXCLUDE_FROM_ALL)
+add_subdirectory(third_party/magic_enum EXCLUDE_FROM_ALL)
+add_subdirectory(third_party/PlatformFolders EXCLUDE_FROM_ALL)
 
 # midifile tells you to copy and paste + statically compile stuff yourself so that's what we do
 add_library(midifile STATIC
@@ -52,7 +54,24 @@ target_link_libraries(piano-recorder PRIVATE
     httplib::httplib
     spdlog::spdlog_header_only
     midifile::midifile
+    magic_enum::magic_enum
+    sago::platform_folders
 )
+
+install(TARGETS piano-recorder RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+set(CPACK_PACKAGE_NAME "piano-recorder")
+set(CPACK_PACKAGE_VENDOR "Tarediiran Industries")
+set(CPACK_PACKAGE_CONTACT "tarediiran@gmail.com")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "System utilities for recording midi and audio sources")
+set(CPACK_OUTPUT_FILE_PREFIX "${CMAKE_BINARY_DIR}/dist")
+
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libasound2 (>= 1.0.25), libc6 (>= 2.31)")
+set(CPACK_RPM_PACKAGE_REQUIRES "alsa-lib >= 1.0.25, glibc >= 2.31")
+
+include(CPack)
 
 # Optional warnings
 if(PR_ENABLE_WARNINGS)

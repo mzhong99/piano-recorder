@@ -61,16 +61,12 @@ int main(int argc, char **argv) {
         for (const auto &device : devices) {
             std::cout << fmt::format("Device: {}", fmt::streamed(device)) << std::endl;
         }
-    }
-
-    if (result["version"].as<bool>()) {
+    } else if (result["version"].as<bool>()) {
         spdlog::info("{}, using the following libs:", argv[0]);
         spdlog::info("    spdlog: {}.{}.{}", SPDLOG_VER_MAJOR, SPDLOG_VER_MINOR, SPDLOG_VER_PATCH);
         spdlog::info("    httplib: {}", CPPHTTPLIB_VERSION);
         spdlog::info("    alsa: {}", SND_LIB_VERSION_STR);
-    }
-
-    if (result.count("port") and result.count("output")) {
+    } else if (result.count("port") and result.count("output")) {
         std::string chosen_port = result["port"].as<std::string>();
         std::string chosen_output = result["output"].as<std::string>();
 
