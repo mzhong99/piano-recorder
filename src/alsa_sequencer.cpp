@@ -3,8 +3,10 @@
 #include <spdlog/fmt/ostr.h>
 #include <spdlog/spdlog.h>
 
-static void throw_alsa(const char *what, int rc) {
-    throw std::runtime_error(std::string(what) + ": " + snd_strerror(rc));
+static void check_alsa(const char *what, int rc) {
+    if (rc < 0) {
+        throw std::runtime_error(std::string(what) + ": " + snd_strerror(rc));
+    }
 }
 
 std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev) {
@@ -60,24 +62,63 @@ std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev) {
 
 namespace pr::midi {
 
+static inline bool is_midi_event(int type) {
+    switch (type) {
+        case SND_SEQ_EVENT_NOTEON:
+        case SND_SEQ_EVENT_NOTEOFF:
+        case SND_SEQ_EVENT_CONTROLLER:
+        case SND_SEQ_EVENT_PITCHBEND:
+        case SND_SEQ_EVENT_KEYPRESS:
+        case SND_SEQ_EVENT_CHANPRESS:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static inline bool is_announce_event(int type) {
+    switch (type) {
+        case SND_SEQ_EVENT_CLIENT_START:
+        case SND_SEQ_EVENT_CLIENT_EXIT:
+        case SND_SEQ_EVENT_PORT_START:
+        case SND_SEQ_EVENT_PORT_EXIT:
+        case SND_SEQ_EVENT_PORT_CHANGE:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static AnnounceType to_announce_type(int type) {
+    switch (type) {
+        case SND_SEQ_EVENT_CLIENT_START:
+            return AnnounceType::CLIENT_START;
+        case SND_SEQ_EVENT_CLIENT_EXIT:
+            return AnnounceType::CLIENT_EXIT;
+        case SND_SEQ_EVENT_PORT_START:
+            return AnnounceType::PORT_START;
+        case SND_SEQ_EVENT_PORT_EXIT:
+            return AnnounceType::PORT_EXIT;
+        case SND_SEQ_EVENT_PORT_CHANGE:
+            return AnnounceType::PORT_CHANGE;
+        default:
+            return AnnounceType::UNKNOWN;
+    }
+}
+
+
 AlsaSequencer::AlsaSequencer(const std::string &client_name, const std::string &port_name) {
     int rc = snd_seq_open(&seq_, "default", SND_SEQ_OPEN_INPUT, 0);
-    if (rc < 0) {
-        throw_alsa("snd_seq_open", rc);
-    }
+    check_alsa("snd_seq_open", rc);
 
     snd_seq_nonblock(seq_, 1);
     snd_seq_set_client_name(seq_, client_name.c_str());
     input_.client_id = snd_seq_client_id(seq_);
-    if (input_.client_id < 0) {
-        throw_alsa("snd_seq_client_id", input_.client_id);
-    }
+    check_alsa("snd_seq_client_id", input_.client_id);
 
     input_.port_id = snd_seq_create_simple_port(seq_, port_name.c_str(),
         SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE, SND_SEQ_PORT_TYPE_APPLICATION);
-    if (input_.port_id < 0) {
-        throw_alsa("snd_seq_create_simple_port", input_.port_id);
-    }
+    check_alsa("snd_seq_create_simple_port", input_.port_id);
 }
 
 AlsaSequencer::~AlsaSequencer(void) {
@@ -103,8 +144,12 @@ std::vector<struct pollfd> AlsaSequencer::get_poll_desc(void) {
 
 void AlsaSequencer::subscribe(const MidiPortHandle &new_src) {
     unsubscribe(src_);
+    subscribe_naive_(new_src);
+    src_ = new_src;
+}
 
-    snd_seq_addr_t src_addr = new_src.to_snd_addr();
+void AlsaSequencer::subscribe_naive_(const MidiPortHandle &src) {
+    snd_seq_addr_t src_addr = src.to_snd_addr();
     snd_seq_addr_t dst_addr = input_.to_snd_addr();
 
     snd_seq_port_subscribe_t *sub = nullptr;
@@ -112,12 +157,20 @@ void AlsaSequencer::subscribe(const MidiPortHandle &new_src) {
     snd_seq_port_subscribe_set_sender(sub, &src_addr);
     snd_seq_port_subscribe_set_dest(sub, &dst_addr);
 
-    int rc = snd_seq_subscribe_port(seq_, sub);
-    if (rc < 0) {
-        throw_alsa("snd_seq_subscribe_port", rc);
-    }
+    snd_seq_port_subscribe_set_time_update(sub, 1);
+    snd_seq_port_subscribe_set_time_real(sub, 1);
 
-    src_ = new_src;
+    int rc = snd_seq_subscribe_port(seq_, sub);
+    check_alsa("snd_seq_subscribe_port", rc);
+}
+
+void AlsaSequencer::subscribe_announcements_(void) {
+    MidiPortHandle announce = {
+        .client_id = SND_SEQ_CLIENT_SYSTEM,
+        .port_id = SND_SEQ_PORT_SYSTEM_ANNOUNCE,
+    };
+
+    subscribe_naive_(announce);
 }
 
 void AlsaSequencer::unsubscribe(const MidiPortHandle &src) {
@@ -136,7 +189,7 @@ void AlsaSequencer::unsubscribe(const MidiPortHandle &src) {
     (void)snd_seq_unsubscribe_port(seq_, sub);
 }
 
-std::optional<std::vector<uint8_t>> AlsaSequencer::get_midi_sequence(void) {
+std::optional<SequencerMsg> AlsaSequencer::get_event(void) {
     snd_seq_event_t *ev = nullptr;
     if (snd_seq_event_input(seq_, &ev) < 0 || ev == nullptr) {
         return std::nullopt;
@@ -144,16 +197,20 @@ std::optional<std::vector<uint8_t>> AlsaSequencer::get_midi_sequence(void) {
 
     spdlog::trace("Got: {}", fmt::streamed(*ev));
 
-    std::vector<uint8_t> bytes;
-    if (!to_midi_bytes_(*ev, bytes) || bytes.empty()) {
-        goto fail;
+    if (is_midi_event(ev->type)) {
+        MidiMsg msg;
+        if (to_midi_bytes_(*ev, msg.data) && !msg.data.empty()) {
+            return msg;
+        }
     }
 
-    snd_seq_free_event(ev);
-    return bytes;
+    if (is_announce_event(ev->type)) {
+        AnnounceMsg msg{.data = to_announce_type(ev->type)};
+        if (AnnounceType::UNKNOWN != msg.data) {
+            return msg;
+        }
+    }
 
-fail:
-    snd_seq_free_event(ev);
     return std::nullopt;
 }
 

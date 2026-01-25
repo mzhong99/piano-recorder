@@ -13,6 +13,9 @@
 #include <string.h>
 #include <string>
 
+template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
 namespace pr::midi {
 
 static std::string midi_bytes_hex(const std::vector<unsigned char> &bytes) {
@@ -73,17 +76,27 @@ void MidiRecorder::record_loop_(void) {
     std::chrono::steady_clock::time_point time_last_saved = std::chrono::steady_clock::now();
 
     while (true) {
-        int rc = ::poll(fds.data(), (nfds_t)fds.size(), 50); // timeout => stop latency
+        int rc = poll(fds.data(), (nfds_t)fds.size(), 50); // timeout => stop latency
         if (rc < 0) {
             throw_sys("poll");
         }
 
-        auto midi_values = sequencer_.get_midi_sequence();
-        while (midi_values) {
-            int now_tick = tick_clock.now_tick();
-            spdlog::trace("[{}] {}", now_tick, midi_bytes_hex(*midi_values));
-            midi_file_.addEvent(0, now_tick, *midi_values);
-            midi_values = sequencer_.get_midi_sequence();
+        std::optional<SequencerMsg> event = sequencer_.get_event();
+        while (event.has_value()) {
+            // Who in god's name thought this was clearer as a feature than the classic union with
+            // a type switch at the start???
+            std::visit(overloaded {
+                [&](MidiMsg msg) {
+                    int now_tick = tick_clock.now_tick();
+                    spdlog::trace("[{}] {}", now_tick, midi_bytes_hex(msg.data));
+                    midi_file_.addEvent(0, now_tick, msg.data);
+                },
+                [&](AnnounceMsg msg) {
+                    spdlog::info("wtf3");
+                    spdlog::info("NYI");
+                },
+            }, event.value());
+            event = sequencer_.get_event();
         }
 
         std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();

@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(PR_ENABLE_WARNINGS "Enable compiler warnings" ON)
+add_compile_options("-fdiagnostics-color=always")
+add_compile_options("-Wno-missing-field-initializers")
 
 # third party libraries from submodules
 add_subdirectory(third_party/cxxopts EXCLUDE_FROM_ALL)

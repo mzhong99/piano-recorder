@@ -5,14 +5,28 @@
 
 #include <iosfwd>
 #include <optional>
+#include <chrono>
 #include <string>
 #include <vector>
+#include <variant>
 
 #include "midi_device.hpp"
 
 std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev);
 
 namespace pr::midi {
+
+enum class AnnounceType {UNKNOWN, CLIENT_START, CLIENT_EXIT, PORT_START, PORT_EXIT, PORT_CHANGE};
+
+struct MidiMsg {
+    std::vector<uint8_t> data;
+};
+
+struct AnnounceMsg {
+    AnnounceType data;
+};
+
+using SequencerMsg = std::variant<MidiMsg, AnnounceMsg>;
 
 class AlsaSequencer {
 public:
@@ -25,10 +39,13 @@ public:
     void unsubscribe(const MidiPortHandle &src);
 
     std::vector<struct pollfd> get_poll_desc(void);
-    std::optional<std::vector<uint8_t>> get_midi_sequence(void);
+    std::optional<SequencerMsg> get_event(void);
 
 private:
-    bool to_midi_bytes_(const snd_seq_event_t &ev, std::vector<uint8_t> &out);
+    static bool to_midi_bytes_(const snd_seq_event_t &ev, std::vector<uint8_t> &out);
+    void subscribe_naive_(const MidiPortHandle &src);
+
+    void subscribe_announcements_(void);
 
 private:
     snd_seq_t *seq_{nullptr};

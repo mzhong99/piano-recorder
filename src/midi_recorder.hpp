@@ -50,7 +50,7 @@ struct TickClock {
 class MidiRecorder {
 public:
     explicit MidiRecorder(MidiPortHandle src, const std::filesystem::path &out_path);
-    ~MidiRecorder();
+    ~MidiRecorder(void);
 
     MidiRecorder(const MidiRecorder &) = delete;
     MidiRecorder &operator=(const MidiRecorder &) = delete;
@@ -62,14 +62,8 @@ public:
     }
 
 private:
-    void alsa_create_input_port_();
-    void alsa_subscribe_();
-    void alsa_unsubscribe_best_effort_() noexcept;
-
     void record_loop_(void);
     void save_midi_(void);
-
-    static bool alsa_to_midi_bytes_(const snd_seq_event_t &ev, std::vector<unsigned char> &out);
 
 private:
     smf::MidiFile midi_file_;
