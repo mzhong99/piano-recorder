@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
             for (const auto &device : devices) {
                 std::string possible_port = fmt::format("{}:{}", device.client_id, device.port_id);
                 if (chosen_port == possible_port) {
-                    spdlog::info("Selected: {}", fmt::streamed(device));
+                    spdlog::info("PARSED: Selected {}", fmt::streamed(device));
                     handle = device;
                     break;
                 }

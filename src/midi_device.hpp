@@ -12,18 +12,8 @@
 
 namespace pr::midi {
 
-struct MidiPortHandle {
-    int client_id = -1;
-    int port_id = -1;
-
-    std::string client_name = "UNKNOWN";
-    std::string port_name = "UNKNOWN";
-
-    uint32_t capabilities = 0;
-    uint32_t type = 0;
-
-    bool is_kernel = false;
-
+class MidiPortHandle {
+public:
     MidiPortHandle(void) = default;
     MidiPortHandle(int client, int port) : client_id(client), port_id(port) {}
 
@@ -48,6 +38,8 @@ struct MidiPortHandle {
         } else {
             spdlog::error("snd_seq_get_port_info - {}, {}", rc, snd_strerror(rc));
         }
+
+        compute_score_();
     }
 
     constexpr bool is_subscribable_source(void) {
@@ -55,7 +47,7 @@ struct MidiPortHandle {
     }
 
     constexpr bool is_valid(void) const {
-        return client_id > 0 && port_id > 0;
+        return client_id >= 0 && port_id >= 0;
     }
 
     snd_seq_addr_t to_snd_addr(void) const {
@@ -69,6 +61,47 @@ struct MidiPortHandle {
     constexpr bool operator==(const MidiPortHandle &other) const {
         return client_id == other.client_id && port_id == other.port_id;
     }
+
+    constexpr const std::string &get_score_reason(void) {
+        return score_reason;
+    }
+
+    constexpr bool operator<(const MidiPortHandle &other) const {
+        return rank_score_ < other.rank_score_;
+    }
+
+private:
+    void compute_score_(void) {
+        int32_t score = 0;
+
+        if (is_kernel) {
+            score += 1000;
+            score_reason += "[is kernel]";
+        }
+
+        if ((type & SND_SEQ_PORT_TYPE_MIDI_GENERIC) != 0) {
+            score += 500;
+            score_reason += "[is midi generic]";
+        }
+
+        rank_score_ = score;
+    }
+
+public:
+    int client_id = -1;
+    int port_id = -1;
+
+    std::string client_name = "UNKNOWN";
+    std::string port_name = "UNKNOWN";
+
+    uint32_t capabilities = 0;
+    uint32_t type = 0;
+
+    bool is_kernel = false;
+
+private:
+    int32_t rank_score_ = INT32_MIN;
+    std::string score_reason;
 };
 
 std::vector<MidiPortHandle> enumerate_midi_sources(void);

@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cmake -S . -B ${SCRIPT_DIR}/build -DCMAKE_BUILD_TYPE=Debug -G Ninja
 cmake --build ${SCRIPT_DIR}/build --parallel
 
-pushd ${SCRIPT_DIR}/build
-cpack -G ${CPACK_TARGET} --config CPackConfig.cmake
-popd
+# pushd ${SCRIPT_DIR}/build
+# cpack -G ${CPACK_TARGET} --config CPackConfig.cmake
+# popd
 

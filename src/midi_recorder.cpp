@@ -9,6 +9,8 @@
 #include <map>
 #include <poll.h>
 #include <stdexcept>
+#include <algorithm>
+#include <vector>
 #include <stdio.h>
 #include <string.h>
 #include <string>
@@ -33,12 +35,12 @@ static void throw_sys(const char *what) {
 }
 
 MidiRecorder::MidiRecorder(MidiPortHandle src, const std::filesystem::path &out_path)
-    : preferred_src_(src), src_(src), out_path_(out_path) {
+    : preferred_src_(src), out_path_(out_path) {
     midi_file_.absoluteTicks();
     midi_file_.setTicksPerQuarterNote(kPpq);
     midi_file_.addTempo(0, 0, kTempoBpm);
 
-    sequencer_.subscribe(src);
+    do_resubscribe_();
 }
 
 MidiRecorder::~MidiRecorder() {
@@ -68,8 +70,6 @@ void MidiRecorder::stop() {
 
 void MidiRecorder::record_loop_(void) {
     std::vector<pollfd> fds = sequencer_.get_poll_desc();
-
-    spdlog::info("Subscribed :{}", fmt::streamed(src_));
     spdlog::info("Logging events...");
 
     TickClock tick_clock{};
@@ -88,12 +88,13 @@ void MidiRecorder::record_loop_(void) {
                     int now_tick = tick_clock.now_tick();
                     spdlog::trace("[{}] {}", now_tick, midi_bytes_hex(msg.data));
                     midi_file_.addEvent(0, now_tick, msg.data);
+                    samples_last_saved_++;
                 },
                 [&](AnnounceMsg msg) {
-                    spdlog::info("Got: {} - {}", magic_enum::enum_name(msg.type), fmt::streamed(msg.addr));
-                    if (msg.type == AnnounceType::PORT_START && msg.addr == src_) {
-                        spdlog::info("Resubscribe: {}", fmt::streamed(msg.addr));
-                        sequencer_.subscribe(src_);
+                    sequencer_.expand_midi_port(msg.addr);
+                    spdlog::info("{} - {}", magic_enum::enum_name(msg.type), fmt::streamed(msg.addr));
+                    if (msg.type == AnnounceType::PORT_START) {
+                        do_resubscribe_();
                     }
                 },
             }, event.value());
@@ -104,8 +105,23 @@ void MidiRecorder::record_loop_(void) {
     }
 }
 
-void MidiRecorder::do_autodetect_resubscribe_(void) {
-    // put algorithm into 
+void MidiRecorder::do_resubscribe_(void) {
+    spdlog::info("Preferred: {}", fmt::streamed(preferred_src_));
+    if (preferred_src_.is_valid()) {
+        spdlog::info("Preferred resolution: subscribe to {}", fmt::streamed(preferred_src_));
+        sequencer_.subscribe(preferred_src_);
+    } else {
+        std::vector<MidiPortHandle> sources = enumerate_midi_sources();
+        if (sources.empty()) {
+            return;
+        }
+
+        std::sort(sources.begin(), sources.end());
+        MidiPortHandle auto_resub = sources.back();
+
+        spdlog::info("Auto resolution: subscribe to {}", fmt::streamed(auto_resub));
+        sequencer_.subscribe(auto_resub);
+    }
 }
 
 void MidiRecorder::do_periodic_save_(void) {
@@ -138,7 +154,11 @@ void MidiRecorder::save_midi_(void) {
     }
 
     rename(tmp_path.c_str(), out_path_.c_str());
-    spdlog::info("Wrote to {}", out_path_.string());
+
+    if (samples_last_saved_ > 0) {
+        spdlog::info("{} - wrote {} samples", out_path_.string(), samples_last_saved_);
+    }
+    samples_last_saved_ = 0;
 }
 
 } // namespace pr::midi

@@ -36,16 +36,19 @@ public:
     AlsaSequencer &operator=(const AlsaSequencer &) = delete;
     ~AlsaSequencer(void);
 
-    void subscribe(const MidiPortHandle &new_src);
+    bool subscribe(const MidiPortHandle &new_src);
     void unsubscribe(const MidiPortHandle &src);
 
     std::vector<struct pollfd> get_poll_desc(void);
     std::optional<SequencerMsg> get_event(void);
 
+    void expand_midi_port(MidiPortHandle &handle) {
+        handle.expand_from_seq(seq_);
+    }
+
 private:
     static bool to_midi_bytes_(const snd_seq_event_t &ev, std::vector<uint8_t> &out);
-    void subscribe_naive_(const MidiPortHandle &src);
-
+    bool subscribe_naive_(const MidiPortHandle &src);
     void subscribe_announcements_(void);
 
 private:

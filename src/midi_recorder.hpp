@@ -65,18 +65,18 @@ public:
 private:
     void record_loop_(void);
     void do_periodic_save_(void);
-    void do_autodetect_resubscribe_(void);
+    void do_resubscribe_(void);
     void save_midi_(void);
 
 private:
     smf::MidiFile midi_file_;
     MidiPortHandle preferred_src_;
-    MidiPortHandle src_;
 
     AlsaSequencer sequencer_{"piano-recorder", "Recorder In"};
 
     std::atomic<bool> running_{false};
     std::thread thread_{};
+    size_t samples_last_saved_{0};
     std::filesystem::path out_path_;
     std::chrono::steady_clock::time_point time_last_saved_{std::chrono::steady_clock::now()};
 };

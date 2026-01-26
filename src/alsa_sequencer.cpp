@@ -144,15 +144,20 @@ std::vector<struct pollfd> AlsaSequencer::get_poll_desc(void) {
     return pollfds;
 }
 
-void AlsaSequencer::subscribe(const MidiPortHandle &new_src) {
+bool AlsaSequencer::subscribe(const MidiPortHandle &new_src) {
     unsubscribe(src_);
-    subscribe_naive_(new_src);
+
+    if (!subscribe_naive_(new_src)) {
+        return false;
+    }
+
     src_ = new_src;
+    return true;
 }
 
-void AlsaSequencer::subscribe_naive_(const MidiPortHandle &src) {
+bool AlsaSequencer::subscribe_naive_(const MidiPortHandle &src) {
     if (!src.is_valid()) {
-        return;
+        return false;
     }
 
     snd_seq_addr_t src_addr = src.to_snd_addr();
@@ -167,7 +172,14 @@ void AlsaSequencer::subscribe_naive_(const MidiPortHandle &src) {
     snd_seq_port_subscribe_set_time_real(sub, 1);
 
     int rc = snd_seq_subscribe_port(seq_, sub);
-    check_alsa("snd_seq_subscribe_port", rc);
+    if (rc != 0) {
+        spdlog::error("SOURCE: {}", fmt::streamed(src));
+        spdlog::error("Could not subscribe: {}", snd_strerror(rc));
+    } else {
+        spdlog::info("Subscribe success: {}", fmt::streamed(src));
+    }
+
+    return rc == 0;
 }
 
 void AlsaSequencer::subscribe_announcements_(void) {
