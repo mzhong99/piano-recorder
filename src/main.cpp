@@ -7,16 +7,23 @@
 #include <signal.h>
 #include <httplib.h>
 #include <iostream>
+
 #include <spdlog/fmt/ostr.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/version.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 #include <string>
 #include <thread>
 #include <memory>
+#include <vector>
 
+#include <sago/platform_folders.h>
 #include <alsa/asoundlib.h>
 
 static std::atomic<bool> g_stop_requested = false;
+const std::string kAppName = "piano-recorder";
 
 extern "C" void signal_handler(int) {
     static bool s_stop_attempted = false;
@@ -48,11 +55,38 @@ spdlog::level::level_enum parse_log_level(const std::string &s) {
     return it->second;
 }
 
-void set_log_level(const std::string &log_level_str) {
+std::filesystem::path get_user_dir(void) {
+    return std::filesystem::path(sago::getDataHome()) / kAppName;
+}
+
+std::filesystem::path get_user_recording_dir(void) {
+    return get_user_dir() / "recordings";
+}
+
+void init_logging(const std::string &log_level_str) {
     const auto level = parse_log_level(log_level_str);
 
-    spdlog::set_level(level);
-    spdlog::flush_on(level); // optional, but often useful for field tools
+    std::error_code ec;
+    std::filesystem::path user_dir = get_user_dir();
+    std::filesystem::create_directories(user_dir, ec);
+    if (ec) {
+        spdlog::error("Could not create {} - exiting (rc={})", user_dir.string(), ec.message());
+        return;
+    }
+
+    std::string log_path = (user_dir / "piano-recorder.log").string();
+    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(log_path, false);
+    auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+
+    console_sink->set_level(level);
+    file_sink->set_level(level);
+
+    std::vector<spdlog::sink_ptr> sinks{console_sink, file_sink};
+    auto logger = std::make_shared<spdlog::logger>("default", sinks.begin(), sinks.end());
+    logger->set_level(level);
+    logger->flush_on(level);
+
+    spdlog::set_default_logger(logger);
 }
 
 void list_devices(void) {
@@ -69,6 +103,52 @@ void print_version(const std::string &prog_name) {
     spdlog::info("    alsa: {}", SND_LIB_VERSION_STR);
 }
 
+int run_application(const cxxopts::ParseResult &args) {
+    pr::midi::MidiPortHandle handle;
+    std::string output_path;
+
+    if (args.count("output")) {
+        output_path = args["output"].as<std::string>();
+    } else {
+        std::error_code ec;
+        std::filesystem::path recording_dir = get_user_recording_dir();
+        std::filesystem::create_directories(recording_dir, ec);
+        if (ec) {
+            spdlog::error("Could not create {} - exiting (rc={})", recording_dir.string(), ec.message());
+            return EXIT_FAILURE;
+        }
+
+        output_path = (recording_dir / "default.mid").string();
+    }
+    spdlog::info("Use output path: {}", output_path);
+
+    if (args.count("port")) {
+        std::string chosen_port = args["port"].as<std::string>();
+
+        auto devices = pr::midi::enumerate_midi_sources();
+        for (const auto &device : devices) {
+            std::string possible_port = fmt::format("{}:{}", device.client_id, device.port_id);
+            if (chosen_port == possible_port) {
+                spdlog::info("Selected {}", device.to_expanded_str());
+                handle = device;
+                break;
+            }
+        }
+    }
+
+    pr::midi::MidiRecorder recorder{handle, output_path};
+    recorder.start();
+
+    while (!g_stop_requested.load(std::memory_order_relaxed)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    recorder.stop();
+    spdlog::info("Recording finished.");
+
+    return EXIT_SUCCESS;
+}
+
 int main(int argc, char **argv) {
     // clang-format off
     cxxopts::Options options("piano-recorder", "MIDI recorder prototype");
@@ -81,7 +161,7 @@ int main(int argc, char **argv) {
         ("h,help", "Print help");
     // clang-format on
 
-    auto result = options.parse(argc, argv);
+    cxxopts::ParseResult result = options.parse(argc, argv);
     if (result["help"].as<bool>()) {
         std::cout << options.help() << "\n";
         return 0;
@@ -90,40 +170,16 @@ int main(int argc, char **argv) {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    set_log_level(result["log-level"].as<std::string>());
+    init_logging(result["log-level"].as<std::string>());
 
     if (result["list"].as<bool>()) {
         list_devices();
     } else if (result["version"].as<bool>()) {
         print_version(argv[0]);
-    } else if (result.count("output")) {
-        pr::midi::MidiPortHandle handle;
-        std::string chosen_output = result["output"].as<std::string>();
-
-        if (result.count("port")) {
-            std::string chosen_port = result["port"].as<std::string>();
-
-            auto devices = pr::midi::enumerate_midi_sources();
-            for (const auto &device : devices) {
-                std::string possible_port = fmt::format("{}:{}", device.client_id, device.port_id);
-                if (chosen_port == possible_port) {
-                    spdlog::info("PARSED: Selected {}", fmt::streamed(device));
-                    handle = device;
-                    break;
-                }
-            }
-        }
-
-        pr::midi::MidiRecorder recorder{handle, chosen_output};
-        recorder.start();
-
-        while (!g_stop_requested.load(std::memory_order_relaxed)) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-
-        recorder.stop();
-        spdlog::info("Recording finished.");
+    } else {
+        return run_application(result);
     }
 
+    spdlog::shutdown();
     return 0;
 }

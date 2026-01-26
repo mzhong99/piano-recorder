@@ -45,6 +45,7 @@ add_executable(piano-recorder
 
 target_include_directories(piano-recorder
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/PlatformFolders
 )
 
 # Link dependencies
