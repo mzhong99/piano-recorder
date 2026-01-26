@@ -18,6 +18,11 @@ std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev) {
         {SND_SEQ_EVENT_CHANPRESS, "CHANPRESS"},
         {SND_SEQ_EVENT_PITCHBEND, "PITCHBEND"},
         {SND_SEQ_EVENT_SYSEX, "SYSEX"},
+        {SND_SEQ_EVENT_CLIENT_START, "CLIENT_START"},
+        {SND_SEQ_EVENT_CLIENT_EXIT, "CLIENT_EXIT"},
+        {SND_SEQ_EVENT_PORT_START, "PORT_START"},
+        {SND_SEQ_EVENT_PORT_EXIT, "PORT_EXIT"},
+        {SND_SEQ_EVENT_PORT_CHANGE, "PORT_CHANGE"},
     };
 
     // clang-format off
@@ -52,8 +57,15 @@ std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev) {
             os << fmt::format("{} len=", EVENT_TYPE_NAME[ev.type], ev.data.ext.len);
             break;
 
-        default:
+        default: {
+            auto it = EVENT_TYPE_NAME.find(ev.type);
+            if (it != EVENT_TYPE_NAME.end()) {
+                os << fmt::format("{}", it->second);
+            } else {
+                os << fmt::format("0x{:08x} (unknown type)", ev.type);
+            }
             break;
+        }
     }
     // clang-format on
 

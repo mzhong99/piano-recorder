@@ -59,7 +59,11 @@ public:
     void start(void);
     void stop(void);
     bool running(void) const noexcept {
-        return running_.load();
+        return running_.load(std::memory_order_relaxed);
+    }
+
+    bool stop_requested(void) const noexcept {
+        return stop_requested_.load(std::memory_order_relaxed);
     }
 
 private:
@@ -69,11 +73,14 @@ private:
     void save_midi_(void);
 
 private:
+    int killswitch_fd_{-1};
+
     smf::MidiFile midi_file_;
     MidiPortHandle preferred_src_;
 
     AlsaSequencer sequencer_{"piano-recorder", "Recorder In"};
 
+    std::atomic<bool> stop_requested_{false};
     std::atomic<bool> running_{false};
     std::thread thread_{};
     size_t samples_last_saved_{0};

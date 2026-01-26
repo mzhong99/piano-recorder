@@ -70,6 +70,8 @@ public:
         return rank_score_ < other.rank_score_;
     }
 
+    const std::string to_expanded_str(void) const;
+
 private:
     void compute_score_(void) {
         int32_t score = 0;

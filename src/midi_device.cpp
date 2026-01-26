@@ -80,10 +80,15 @@ static std::string to_string_type(uint32_t type) {
     return to_string_mapping(type, STRINGIFY);
 }
 
+const std::string MidiPortHandle::to_expanded_str(void) const {
+    return fmt::format("{}:{} [{}] / [{}] kernel={} capabilities={} type={}", client_id, port_id,
+        client_name, port_name, is_kernel ? "yes" : "no",
+        to_string_capabilities(capabilities), to_string_type(type));
+}
+
 std::ostream &operator<<(std::ostream &os, const MidiPortHandle &h) {
-    os << fmt::format("{}:{} [{}] / [{}] kernel={} capabilities={} type={}", h.client_id, h.port_id,
-        h.client_name, h.port_name, h.is_kernel ? "yes" : "no",
-        to_string_capabilities(h.capabilities), to_string_type(h.type));
+    os << fmt::format("{}:{} [{}] / [{}] kernel={} caps=0x{:08x} type=0x{:08x}", h.client_id,
+        h.port_id, h.client_name, h.port_name, h.is_kernel ? "yes" : "no", h.capabilities, h.type);
     return os;
 }
 
