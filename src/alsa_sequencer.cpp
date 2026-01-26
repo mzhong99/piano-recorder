@@ -106,7 +106,6 @@ static AnnounceType to_announce_type(int type) {
     }
 }
 
-
 AlsaSequencer::AlsaSequencer(const std::string &client_name, const std::string &port_name) {
     int rc = snd_seq_open(&seq_, "default", SND_SEQ_OPEN_INPUT, 0);
     check_alsa("snd_seq_open", rc);
@@ -236,48 +235,48 @@ bool AlsaSequencer::to_midi_bytes_(const snd_seq_event_t &ev, std::vector<uint8_
     auto ch = [](int c) -> uint8_t { return static_cast<uint8_t>(c & 0x0F); };
 
     switch (ev.type) {
-    case SND_SEQ_EVENT_NOTEON:
-        out = {static_cast<uint8_t>(0x90 | ch(ev.data.note.channel)),
-            static_cast<uint8_t>(ev.data.note.note & 0x7F),
-            static_cast<uint8_t>(ev.data.note.velocity & 0x7F)};
-        return true;
-    case SND_SEQ_EVENT_NOTEOFF:
-        out = {static_cast<uint8_t>(0x80 | ch(ev.data.note.channel)),
-            static_cast<uint8_t>(ev.data.note.note & 0x7F),
-            static_cast<uint8_t>(ev.data.note.velocity & 0x7F)};
-        return true;
-    case SND_SEQ_EVENT_CONTROLLER:
-        out = {static_cast<uint8_t>(0xB0 | ch(ev.data.control.channel)),
-            static_cast<uint8_t>(ev.data.control.param & 0x7F),
-            static_cast<uint8_t>(ev.data.control.value & 0x7F)};
-        return true;
-    case SND_SEQ_EVENT_PGMCHANGE:
-        out = {static_cast<uint8_t>(0xC0 | ch(ev.data.control.channel)),
-            static_cast<uint8_t>(ev.data.control.value & 0x7F)};
-        return true;
-    case SND_SEQ_EVENT_CHANPRESS:
-        out = {static_cast<uint8_t>(0xD0 | ch(ev.data.control.channel)),
-            static_cast<uint8_t>(ev.data.control.value & 0x7F)};
-        return true;
-    case SND_SEQ_EVENT_PITCHBEND: {
-        int v = ev.data.control.value;
-        if (v < -8192)
-            v = -8192;
-        if (v > 8191)
-            v = 8191;
-        int pb = v + 8192; // 0..16383
-        out = {static_cast<uint8_t>(0xE0 | ch(ev.data.control.channel)),
-            static_cast<uint8_t>(pb & 0x7F), static_cast<uint8_t>((pb >> 7) & 0x7F)};
-        return true;
-    }
-    case SND_SEQ_EVENT_SYSEX:
-        if (!ev.data.ext.ptr || ev.data.ext.len <= 0)
+        case SND_SEQ_EVENT_NOTEON:
+            out = {static_cast<uint8_t>(0x90 | ch(ev.data.note.channel)),
+                static_cast<uint8_t>(ev.data.note.note & 0x7F),
+                static_cast<uint8_t>(ev.data.note.velocity & 0x7F)};
+            return true;
+        case SND_SEQ_EVENT_NOTEOFF:
+            out = {static_cast<uint8_t>(0x80 | ch(ev.data.note.channel)),
+                static_cast<uint8_t>(ev.data.note.note & 0x7F),
+                static_cast<uint8_t>(ev.data.note.velocity & 0x7F)};
+            return true;
+        case SND_SEQ_EVENT_CONTROLLER:
+            out = {static_cast<uint8_t>(0xB0 | ch(ev.data.control.channel)),
+                static_cast<uint8_t>(ev.data.control.param & 0x7F),
+                static_cast<uint8_t>(ev.data.control.value & 0x7F)};
+            return true;
+        case SND_SEQ_EVENT_PGMCHANGE:
+            out = {static_cast<uint8_t>(0xC0 | ch(ev.data.control.channel)),
+                static_cast<uint8_t>(ev.data.control.value & 0x7F)};
+            return true;
+        case SND_SEQ_EVENT_CHANPRESS:
+            out = {static_cast<uint8_t>(0xD0 | ch(ev.data.control.channel)),
+                static_cast<uint8_t>(ev.data.control.value & 0x7F)};
+            return true;
+        case SND_SEQ_EVENT_PITCHBEND: {
+            int v = ev.data.control.value;
+            if (v < -8192)
+                v = -8192;
+            if (v > 8191)
+                v = 8191;
+            int pb = v + 8192; // 0..16383
+            out = {static_cast<uint8_t>(0xE0 | ch(ev.data.control.channel)),
+                static_cast<uint8_t>(pb & 0x7F), static_cast<uint8_t>((pb >> 7) & 0x7F)};
+            return true;
+        }
+        case SND_SEQ_EVENT_SYSEX:
+            if (!ev.data.ext.ptr || ev.data.ext.len <= 0)
+                return false;
+            out.resize(static_cast<size_t>(ev.data.ext.len));
+            std::memcpy(out.data(), ev.data.ext.ptr, out.size());
+            return true;
+        default:
             return false;
-        out.resize(static_cast<size_t>(ev.data.ext.len));
-        std::memcpy(out.data(), ev.data.ext.ptr, out.size());
-        return true;
-    default:
-        return false;
     }
 }
 

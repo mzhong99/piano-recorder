@@ -3,12 +3,12 @@
 #include <alsa/asoundlib.h>
 #include <poll.h>
 
+#include <chrono>
 #include <iosfwd>
 #include <optional>
-#include <chrono>
 #include <string>
-#include <vector>
 #include <variant>
+#include <vector>
 
 #include "midi_device.hpp"
 
@@ -16,7 +16,7 @@ std::ostream &operator<<(std::ostream &os, const snd_seq_event_t &ev);
 
 namespace pr::midi {
 
-enum class AnnounceType {UNKNOWN, CLIENT_START, CLIENT_EXIT, PORT_START, PORT_EXIT, PORT_CHANGE};
+enum class AnnounceType { UNKNOWN, CLIENT_START, CLIENT_EXIT, PORT_START, PORT_EXIT, PORT_CHANGE };
 
 struct MidiMsg {
     std::vector<uint8_t> data;

@@ -4,19 +4,21 @@
 #include <spdlog/fmt/ostr.h>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <errno.h>
 #include <iostream>
 #include <map>
 #include <poll.h>
 #include <stdexcept>
-#include <algorithm>
-#include <vector>
 #include <stdio.h>
 #include <string.h>
 #include <string>
+#include <vector>
 
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+template <class... Ts> struct overloaded : Ts... {
+    using Ts::operator()...;
+};
+template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 namespace pr::midi {
 
@@ -83,21 +85,23 @@ void MidiRecorder::record_loop_(void) {
         while (event.has_value()) {
             // Who in god's name thought this was clearer as a feature than the classic union with
             // a type switch at the start???
-            std::visit(overloaded {
-                [&](MidiMsg msg) {
-                    int now_tick = tick_clock.now_tick();
-                    spdlog::trace("[{}] {}", now_tick, midi_bytes_hex(msg.data));
-                    midi_file_.addEvent(0, now_tick, msg.data);
-                    samples_last_saved_++;
-                },
-                [&](AnnounceMsg msg) {
-                    sequencer_.expand_midi_port(msg.addr);
-                    spdlog::info("{} - {}", magic_enum::enum_name(msg.type), fmt::streamed(msg.addr));
-                    if (msg.type == AnnounceType::PORT_START) {
-                        do_resubscribe_();
-                    }
-                },
-            }, event.value());
+            std::visit(overloaded{
+                           [&](MidiMsg msg) {
+                               int now_tick = tick_clock.now_tick();
+                               spdlog::trace("[{}] {}", now_tick, midi_bytes_hex(msg.data));
+                               midi_file_.addEvent(0, now_tick, msg.data);
+                               samples_last_saved_++;
+                           },
+                           [&](AnnounceMsg msg) {
+                               sequencer_.expand_midi_port(msg.addr);
+                               spdlog::info("{} - {}", magic_enum::enum_name(msg.type),
+                                   fmt::streamed(msg.addr));
+                               if (msg.type == AnnounceType::PORT_START) {
+                                   do_resubscribe_();
+                               }
+                           },
+                       },
+                event.value());
             event = sequencer_.get_event();
         }
 

@@ -1,8 +1,8 @@
 #include "midi_device.hpp"
 #include <alsa/asoundlib.h>
 #include <map>
-#include <spdlog/spdlog.h>
 #include <spdlog/fmt/ostr.h>
+#include <spdlog/spdlog.h>
 #include <sstream>
 #include <string>
 #include <vector>
